@@ -28,7 +28,7 @@ spec:
                 - ALL
             privileged: false
             readOnlyRootFilesystem: true
-          image: gcr.io/google-samples/microservices-demo/productcatalogservice:v0.6.0
+          image: registry.shortrib.dev/online-boutique/productcatalogservice:latest
           ports:
             - containerPort: 3550
           env:

@@ -53,7 +53,7 @@ spec:
                 - ALL
             privileged: false
             readOnlyRootFilesystem: true
-          image: gcr.io/google-samples/microservices-demo/loadgenerator:v0.6.0
+          image: registry.shortrib.dev/online-boutique/loadgenerator:latest
           env:
             - name: FRONTEND_ADDR
               value: "frontend:80"

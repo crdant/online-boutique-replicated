@@ -30,7 +30,7 @@ spec:
                 - ALL
             privileged: false
             readOnlyRootFilesystem: true
-          image: gcr.io/google-samples/microservices-demo/cartservice:v0.6.0
+          image: registry.shortrib.dev/online-boutique/cartservice:latest
           ports:
             - containerPort: 7070
           env:
@@ -84,7 +84,7 @@ spec:
                 - ALL
             privileged: false
             readOnlyRootFilesystem: true
-          image: gcr.io/google-samples/microservices-demo/cartservice:v0.6.0
+          image: registry.shortrib.dev/online-boutique/cartservice:latest
           ports:
             - containerPort: 7070
           env:

@@ -47,7 +47,7 @@ spec:
                 - ALL
             privileged: false
             readOnlyRootFilesystem: true
-          image: gcr.io/google-samples/microservices-demo/emailservice:v0.6.0
+          image: registry.shortrib.dev/online-boutique/emailservice:latest
           ports:
             - containerPort: 8080
           env:

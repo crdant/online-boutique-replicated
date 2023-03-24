@@ -27,7 +27,7 @@ spec:
                 - ALL
             privileged: false
             readOnlyRootFilesystem: true
-          image: gcr.io/google-samples/microservices-demo/checkoutservice:v0.6.0
+          image: registry.shortrib.dev/online-boutique/checkoutservice:latest
           ports:
             - containerPort: 5050
           readinessProbe:

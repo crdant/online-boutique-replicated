@@ -28,7 +28,7 @@ spec:
                 - ALL
             privileged: false
             readOnlyRootFilesystem: true
-          image: gcr.io/google-samples/microservices-demo/recommendationservice:v0.6.0
+          image: registry.shortrib.dev/online-boutique/recommendationservice:latest
           ports:
             - containerPort: 8080
           readinessProbe:
