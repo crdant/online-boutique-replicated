@@ -1,0 +1,55 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kots.io/exclude: '{{repl (ConfigOptionEquals "tls-issuer-type" "issuer") }}'
+    cert-manager.io/cluster-issuer: '{{repl (ConfigOption "tls-issuer-name" ) }}'
+    ingress.kubernetes.io/force-ssl-redirect: "true"
+  labels:
+    app: frontend
+  name: frontend
+spec:
+  rules:
+  - host: boutique.{{repl ConfigOption "domain"}}
+    http:
+      paths:
+      - backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - boutique.{{repl ConfigOption "domain"}}
+    secretName: frontend-cert
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kots.io/exclude: '{{repl (ConfigOptionEquals "tls-issuer-type" "cluster-issuer") }}'
+    cert-manager.io/issuer: '{{repl (ConfigOption "tls-issuer-name" ) }}'
+    ingress.kubernetes.io/force-ssl-redirect: "true"
+  labels:
+    app: frontend
+  name: frontend
+spec:
+  rules:
+  - host: boutique.{{repl ConfigOption "domain"}}
+    http:
+      paths:
+      - backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - boutique.{{repl ConfigOption "domain"}}
+    secretName: frontend-cert
+

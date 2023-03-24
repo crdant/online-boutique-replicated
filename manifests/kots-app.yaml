@@ -2,14 +2,27 @@
 apiVersion: kots.io/v1beta1
 kind: Application
 metadata:
-  name: nginx
+  name: online-boutique
 spec:
-  title: App Name
-  icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/kubernetes/icon/color/kubernetes-icon-color.png
+  title: Online Boutique
+  icon: https://raw.githubusercontent.com/GoogleCloudPlatform/microservices-demo/main/src/frontend/static/icons/Hipster_HeroLogoMaroon.svg 
   statusInformers:
-    - deployment/nginx
+    - deployment/adservice
+    - deployment/cartservice
+    - deployment/checkoutservice
+    - deployment/currencyservice
+    - deployment/emailservice
+    - deployment/frontend
+    - deployment/loadgenerator
+    - deployment/paymentservice
+    - deployment/productcatalogservice
+    - deployment/recommendationservice
+    - deployment/redis-cart
+    - deployment/shippingservice
+  replicatedRegistryDomain: registry.shortrib.io
+  proxyRegistryDomain: proxy.shortrib.io
   ports:
-    - serviceName: "nginx"
+    - serviceName: frontend
       servicePort: 80
       localPort: 8888
-      applicationUrl: "http://nginx"
+      applicationUrl: "http://frontend"

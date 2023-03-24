@@ -7,6 +7,62 @@ spec:
     - clusterInfo: {}
     - clusterResources: {}
     - logs:
-        selector:
-          - app=nginx
+        name: app/adservice
         namespace: '{{repl Namespace }}'
+        selector:
+          - app=adservice
+    - logs:
+        name: app/cartservice
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=cartservice
+    - logs:
+        name: app/checkoutservice
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=checkoutservice
+    - logs:
+        name: app/currencyservice
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=currencyservice
+    - logs:
+        name: app/emailservice
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=emailservice
+    - logs:
+        name: app/frontend
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=frontend
+    - logs:
+        name: app/loadgenerator
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=loadgenerator
+    - logs:
+        name: app/paymentservice
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=paymentservice
+    - logs:
+        name: app/productcatalogservice
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=productcatalogservice
+    - logs:
+        name: app/recommendationservice
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=recommendationservice
+    - logs:
+        name: app/redis-cart
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=redis-cart
+    - logs:
+        name: app/shippingservice
+        namespace: '{{repl Namespace }}'
+        selector:
+          - app=shippingservice 

@@ -7,12 +7,17 @@ spec:
     - clusterVersion:
         outcomes:
           - fail:
-              when: "< 1.20.0"
-              message: The application requires Kubernetes 1.20.0 or later, and recommends 1.21.0 or later.
+              when: "< 1.23.0"
+              message: |
+                Your cluster is using an end-of-life version of Kubernetes. The Online Boutique
+                only runs on supported versions. Please upgrade your Kubernetes version to 1.23
+                or later.
               uri: https://www.kubernetes.io
           - warn:
-              when: "< 1.21.0"
-              message: Your cluster meets the minimum version of Kubernetes, but we recommend you update to 1.21.0 or later.
+              when: "< 1.25.0"
+              message: |
+                Your cluster is using an older version of Kubernetes. The Online Boutique runs on
+                your current version, but you may consider upgrading to the latest verison 1.26.
               uri: https://kubernetes.io
           - pass:
               message: Your cluster meets the recommended and required versions of Kubernetes.
@@ -20,46 +25,48 @@ spec:
         outcomes:
           - pass:
               when: "== containerd"
-              message: containerd container runtime was found.
+              message: |
+                Your cluster is running the containerd container runtime that the Online Boutique
+                is developed and tested on.
           - fail:
-              message: Did not find containerd container runtime.
-    - distribution:
-        outcomes:
-          - fail:
-              when: "== docker-desktop"
-              message: The application does not support Docker Desktop clusters.
-          - fail:
-              when: "== microk8s"
-              message: The application does not support MicroK8s clusters.
-          - fail:
-              when: "== minikube"
-              message: The application does not support minikube clusters.
-          - pass:
-              when: "== eks"
-              message: EKS is a supported distribution.
-          - pass:
-              when: "== gke"
-              message: GKE is a supported distribution.
-          - pass:
-              when: "== aks"
-              message: AKS is a supported distribution.
-          # Will be supported in the future
-          - pass:
-              when: "== kurl"
-              message: kURL is a supported distribution.
-          - pass:
-              when: "== digitalocean"
-              message: DigitalOcean is a supported distribution.
-          - warn:
-              message: Unable to determine the distribution of Kubernetes.
+              message: |
+                Your cluster is running an unsupported container runtime. Online Boutique may run
+                but support is not guaranteed for defects that cannot be reproduced using the containerd 
+                runtime.
     - nodeResources:
-        checkName: Total CPU Cores
+        checkName: CPU available to allocated to Online Boutique services
         outcomes:
           - fail:
-              when: "sum(cpuCapacity) < 2"
-              message: The cluster must contain at least 2 cores, and should contain at least 4 cores.
+              when: "sum(cpuAllocatable) < 2"
+              message: |
+                The Online Boutique requires that your cluster have a minimum of two CPU cores
+                available to allocate to all required services. Please install into a cluster with more
+                available CPU capacity.
           - warn:
-              when: "sum(cpuCapacity) < 4"
-              message: The cluster should contain at least 4 cores.
+              when: "sum(cpuAllocatable) < 3"
+              message: |
+                The Online Boutique may require more CPU capacity than the three CPU cores that
+                your cluster has available to allocated to run all required services when running
+                at load. 
           - pass:
-              message: There are at least 4 cores in the cluster.
+              message: |
+                Your cluster has sufficient CPU capacity available to allocation to all required 
+                services for the Online Boutique application.
+    - nodeResources:
+        checkName: Memory available to allocate to Online Boutique services
+        outcomes:
+          - fail:
+              when: "sum(memoryAllocatable) < 1304Mi"
+              message: |
+                The Online Boutique requires that your cluster have a minimum of 1304Mi of memory
+                available to run all required services. Please install into a cluster with more
+                available memory.
+          - warn:
+              when: "sum(memoryAllocatable) < 2286Mi"
+              message: |
+                The Online Boutique may requires more memory than your cluster has available to
+                allocated to all services in order to run all required services at load. 
+          - pass:
+              message: |
+                Your cluster has sufficient memory capacity available to allocated to all 
+                required services for the Online Boutique application.
