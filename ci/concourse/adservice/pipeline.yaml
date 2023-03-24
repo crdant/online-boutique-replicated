@@ -1,0 +1,113 @@
+resources:
+- name: source
+  type: git
+  icon: github
+  source:
+    uri: https://github.com/GoogleCloudPlatform/microservices-demo.git
+    paths: 
+    - src/adservice/**
+- name: image
+  type: registry-image
+  icon: oci 
+  source:
+    repositoy: registry.shortrib.dev/online-boutique/adservice
+    username: ((regisry.robot))
+    password: ((resistry.token))
+
+jobs:
+- name: test
+  plan:
+  - get: adservice
+    trigger: true
+  - task: check
+    config:
+      platform: linux
+      inputs:
+      - name: source
+      image_resource:
+        name: ""
+        source:
+          repository: gradle
+          tag: 8.0.2-jdk17-alpine
+        type: registry-image
+      caches:
+      - path: $HOME/.m2/repository
+      - path: $HOME/.gradle/caches/
+      - path: $HOME/.gradle/wrapper/
+      run:
+        path: /bin/sh
+        dir: adservice/src/adservice
+        args:
+        - -c
+        - |
+          java -Xmx32m -version
+          javac -J-Xmx32m -version
+
+          gradle wrapper
+          ./gradlew check
+
+- name: build
+  plan:
+  - get: adservice
+    trigger: true
+    passed:
+    - test
+  - task: assemble 
+    config:
+      platform: linux
+      inputs:
+      - name: source
+      outputs:
+      - name: source
+      image_resource:
+        name: ""
+        source:
+          repository: gradle
+          tag: 8.0.2-jdk17-alpine
+        type: registry-image
+      caches:
+      - path: $HOME/.m2/repository
+      - path: $HOME/.gradle/caches/
+      - path: $HOME/.gradle/wrapper/
+      run:
+        path: /bin/sh
+        dir: adservice/src/adservice
+        args:
+        - -c
+        - |
+          java -Xmx32m -version
+          javac -J-Xmx32m -version
+
+          gradle wrapper
+          ./gradlew assemble
+
+- name: image
+  plan:
+  - get: adservice
+    trigger: true
+    passed:
+    - build
+  - put: image
+  - task: sign
+    config:
+      platform: linux
+      inputs:
+      - name: source
+      image_resource:
+        name: ""
+        source:
+          repository: gradle
+          tag: 8.0.2-jdk17-alpine
+        type: registry-image
+     run:
+        path: /bin/sh
+        dir: adservice/src/adservice
+        args:
+        - -c
+        - |
+          java -Xmx32m -version
+          javac -J-Xmx32m -version
+
+          gradle wrapper
+          ./gradlew assemble
+
