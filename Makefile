@@ -30,6 +30,17 @@ endif
 install:
 	@kubectl kots install ${REPLICATED_APP}/$(CHANNEL)
 
+pipelines:
+	@fly --target boutique set-pipeline --pipeline adservice --config ci/concourse/adservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline adservice
+	@fly --target boutique set-pipeline --pipeline cartservice --config ci/concourse/cartservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline cartservice
+	@fly --target boutique set-pipeline --pipeline checkoutservice --config ci/concourse/checkoutservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline checkoutservice
+	@fly --target boutique set-pipeline --pipeline currencyservice --config ci/concourse/currencyservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline currencyservice
+	@fly --target boutique set-pipeline --pipeline emailservice --config ci/concourse/emailservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline emailservice
+	@fly --target boutique set-pipeline --pipeline frontend --config ci/concourse/frontend/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline frontend
+	@fly --target boutique set-pipeline --pipeline paymentservice --config ci/concourse/paymentservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline paymentservice
+	@fly --target boutique set-pipeline --pipeline recommendationservice --config ci/concourse/recommendationservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline recommendationservice
+	@fly --target boutique set-pipeline --pipeline shippingservice --config ci/concourse/shippingservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline shippingservice
+
 customers:
 	@replicated customer create --channel Stable --expires-in 730h --name Klein-Stehr
 	@replicated customer create --channel Stable --expires-in 17530h --name "Purdy Inc."
