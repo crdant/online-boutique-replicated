@@ -1,0 +1,78 @@
+resources:
+- name: source
+  type: git
+  icon: github
+  source:
+    uri: https://github.com/GoogleCloudPlatform/microservices-demo.git
+    paths: 
+    - src/recommendationservice/**
+- name: image
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/recommendationservice
+    username: ((registry.robot))
+    password: ((registry.token))
+    tag: edge
+
+jobs:
+- name: build
+  plan:
+  - get: source
+    trigger: true
+  - task: build
+    privileged: true
+    output_mapping:
+      image: build
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: concourse/oci-build-task
+      params:
+        CONTEXT: source/src/recommendationservice        
+      inputs:
+      - name: source
+      outputs:
+      - name: image
+      run:
+        path: build
+  - put: image
+    params: 
+      image: build/image.tar
+  
+- name: sign
+  plan:
+  - get: image
+    trigger: true
+    passed:
+    - build
+  - task: sign
+    params:
+      KUBECONFIG_JSON: ((kubeconfig))
+      DOCKERCONFIG_JSON: ((registry.config))
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: gcr.io/projectsigstore/cosign
+          tag: v2.0.0
+        type: registry-image
+      inputs:
+      - name: image
+      run:
+        path: /busybox/sh
+        args:
+          - -c
+          - |
+            umask 077
+            mkdir ${HOME}/.kube
+            echo "$KUBECONFIG_JSON" > ${HOME}/.kube/config
+
+            mkdir ${HOME}/.docker
+            echo "$DOCKERCONFIG_JSON" > ${HOME}/.docker/config.json
+
+            export DIGEST=$(cat image/digest)
+            /ko-app/cosign version 
+            /ko-app/cosign sign --yes --key k8s://concourse-online-boutique/signing-key registry.shortrib.dev/online-boutique/recommendationservice@$DIGEST 
