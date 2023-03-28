@@ -1,0 +1,8 @@
+apiVersion: kots.io/v1beta1
+kind: LintConfig
+metadata:
+  name: online-boutique
+spec:
+  rules:
+  - name: nonexistent-status-informer-object
+    level: "off"
