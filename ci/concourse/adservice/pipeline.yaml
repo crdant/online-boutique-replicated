@@ -10,14 +10,15 @@ resources:
   type: registry-image
   icon: oci 
   source:
-    repositoy: registry.shortrib.dev/online-boutique/adservice
-    username: ((regisry.robot))
-    password: ((resistry.token))
+    repository: registry.shortrib.dev/online-boutique/adservice
+    username: ((registry.robot))
+    password: ((registry.token))
+    tag: edge
 
 jobs:
 - name: test
   plan:
-  - get: adservice
+  - get: source
     trigger: true
   - task: check
     config:
@@ -25,10 +26,9 @@ jobs:
       inputs:
       - name: source
       image_resource:
-        name: ""
         source:
           repository: gradle
-          tag: 8.0.2-jdk17-alpine
+          tag: 8.0.2-jdk19-jammy
         type: registry-image
       caches:
       - path: $HOME/.m2/repository
@@ -36,7 +36,7 @@ jobs:
       - path: $HOME/.gradle/wrapper/
       run:
         path: /bin/sh
-        dir: adservice/src/adservice
+        dir: source/src/adservice
         args:
         - -c
         - |
@@ -44,70 +44,67 @@ jobs:
           javac -J-Xmx32m -version
 
           gradle wrapper
-          ./gradlew check
+          ./gradlew test
 
 - name: build
   plan:
-  - get: adservice
+  - get: source
     trigger: true
     passed:
     - test
-  - task: assemble 
+  - task: build
+    privileged: true
+    output_mapping:
+      image: build
     config:
       platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: concourse/oci-build-task
+      params:
+        CONTEXT: source/src/adservice        
       inputs:
       - name: source
       outputs:
-      - name: source
-      image_resource:
-        name: ""
-        source:
-          repository: gradle
-          tag: 8.0.2-jdk17-alpine
-        type: registry-image
-      caches:
-      - path: $HOME/.m2/repository
-      - path: $HOME/.gradle/caches/
-      - path: $HOME/.gradle/wrapper/
+      - name: image
       run:
-        path: /bin/sh
-        dir: adservice/src/adservice
-        args:
-        - -c
-        - |
-          java -Xmx32m -version
-          javac -J-Xmx32m -version
-
-          gradle wrapper
-          ./gradlew assemble
-
-- name: image
+        path: build
+  - put: image
+    params: 
+      image: build/image.tar
+  
+- name: sign
   plan:
-  - get: adservice
+  - get: image
     trigger: true
     passed:
     - build
-  - put: image
   - task: sign
+    params:
+      KUBECONFIG_JSON: ((kubeconfig))
+      DOCKERCONFIG_JSON: ((registry.config))
     config:
       platform: linux
-      inputs:
-      - name: source
       image_resource:
-        name: ""
         source:
-          repository: gradle
-          tag: 8.0.2-jdk17-alpine
+          repository: gcr.io/projectsigstore/cosign
+          tag: v2.0.0
         type: registry-image
-     run:
-        path: /bin/sh
-        dir: adservice/src/adservice
+      inputs:
+      - name: image
+      run:
+        path: /busybox/sh
         args:
-        - -c
-        - |
-          java -Xmx32m -version
-          javac -J-Xmx32m -version
+          - -c
+          - |
+            umask 077
+            mkdir ${HOME}/.kube
+            echo "$KUBECONFIG_JSON" > ${HOME}/.kube/config
 
-          gradle wrapper
-          ./gradlew assemble
+            mkdir ${HOME}/.docker
+            echo "$DOCKERCONFIG_JSON" > ${HOME}/.docker/config.json
 
+            export DIGEST=$(cat image/digest)
+            /ko-app/cosign version 
+            /ko-app/cosign sign --yes --key k8s://concourse-online-boutique/signing-key registry.shortrib.dev/online-boutique/adservice@$DIGEST 
