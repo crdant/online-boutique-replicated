@@ -13,7 +13,6 @@ spec:
     - deployment/currencyservice
     - deployment/emailservice
     - deployment/frontend
-    - deployment/loadgenerator
     - deployment/paymentservice
     - deployment/productcatalogservice
     - deployment/recommendationservice
