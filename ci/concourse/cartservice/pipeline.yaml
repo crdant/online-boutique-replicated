@@ -56,7 +56,7 @@ jobs:
         source:
           repository: concourse/oci-build-task
       params:
-        CONTEXT: source/src/cartservice        
+        CONTEXT: source/src/cartservice/src
       inputs:
       - name: source
       outputs:
