@@ -1,0 +1,61 @@
+---
+apiVersion: kots.io/v1beta1
+kind: HelmChart
+metadata:
+  name: samplechart
+spec:
+  # chart identifies a matching chart from a .tgz
+  chart:
+    name: onlineboutique
+    chartVersion: 0.6.0
+     
+  # useHelmInstall identifies whether this Helm chart will use the
+  # Replicated Helm installation (false) or native Helm installation (true). Default is false.
+  # Native Helm installations are only available for Helm v3 charts.
+  useHelmInstall: true
+ 
+  # weight determines the order that charts with "useHelmInstall: true" are applied, with lower weights first.
+  weight: 10
+
+  # values are used in the customer environment, as a pre-render step
+  # these values will be supplied to helm template
+  values:
+    # there only one chart for the online boutique application, but the goal here is to simulate a set of 
+    # services contributed by individual teams that may release at different cadenaces
+    #
+    # to accomplish this, we us multiple instances of the chart with a single service created using the
+    # values to toggle which service is deployed
+
+    # image tag can vary per team
+    images:
+      repository: registry.shortrib.dev/online-boutique
+      tag: edge
+    
+    # enable the specific services this instance represents
+    adService:
+      create: true
+    # disable other services
+    cartService:
+      create: true
+    checkoutService:
+      create: true
+    currencyService:
+      create: true
+    emailService:
+      create: true
+    frontend:
+      create: true
+    loadGenerator:
+      create: true
+    paymentService:
+      create: true
+    productCatalogService:
+      create: true
+    recommendationService:
+      create: true
+    shippingService:
+      create: true
+    cartDatabase:
+      inClusterRedis:
+        create: false
+
