@@ -2,7 +2,7 @@
 apiVersion: kots.io/v1beta1
 kind: HelmChart
 metadata:
-  name: samplechart
+  name: adservice
 spec:
   # chart identifies a matching chart from a .tgz
   chart:
