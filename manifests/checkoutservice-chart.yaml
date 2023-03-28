@@ -8,6 +8,7 @@ spec:
   chart:
     name: onlineboutique
     chartVersion: 0.6.0
+    releaseName: checkoutservice 
      
   # useHelmInstall identifies whether this Helm chart will use the
   # Replicated Helm installation (false) or native Helm installation (true). Default is false.

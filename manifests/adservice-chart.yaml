@@ -8,7 +8,8 @@ spec:
   chart:
     name: onlineboutique
     chartVersion: 0.6.0
-     
+    releaseName: adservice 
+
   # useHelmInstall identifies whether this Helm chart will use the
   # Replicated Helm installation (false) or native Helm installation (true). Default is false.
   # Native Helm installations are only available for Helm v3 charts.
