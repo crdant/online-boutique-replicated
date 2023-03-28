@@ -34,27 +34,28 @@ spec:
     # enable the specific services this instance represents
     adService:
       create: true
+
     # disable other services
     cartService:
-      create: true
+      create: false
     checkoutService:
-      create: true
+      create: false
     currencyService:
-      create: true
+      create: false
     emailService:
-      create: true
+      create: false
     frontend:
-      create: true
+      create: false
     loadGenerator:
-      create: true
+      create: false
     paymentService:
-      create: true
+      create: false
     productCatalogService:
-      create: true
+      create: false
     recommendationService:
-      create: true
+      create: false
     shippingService:
-      create: true
+      create: false
     cartDatabase:
       inClusterRedis:
         create: false
