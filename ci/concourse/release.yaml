@@ -1,118 +1,291 @@
+registry_credentials: &registry_credentials
+  username: ((registry.robot))
+  password: ((registry.token))
+
+cosign_credentials: &cosign_credentials
+  KUBECONFIG_JSON: ((kubeconfig))
+  DOCKERCONFIG_JSON: ((registry.config))
+
+git_credentials: &git_credentials
+  username: ((github.username))
+  password: ((github.password))
+
+cosign_verify: &cosign_verify
+  platform: linux
+  image_resource:
+    source:
+      repository: gcr.io/projectsigstore/cosign
+      tag: v2.0.0
+    type: registry-image
+  inputs:
+  - name: image
+  run:
+    path: /busybox/sh
+    args:
+      - -c
+      - |
+        umask 077
+        mkdir ${HOME}/.kube
+        echo "$KUBECONFIG_JSON" > ${HOME}/.kube/config
+
+        mkdir ${HOME}/.docker
+        echo "$DOCKERCONFIG_JSON" > ${HOME}/.docker/config.json
+
+        export REPOSITORY=$(cat image/repository)
+        export DIGEST=$(cat image/digest)
+        /ko-app/cosign version 
+        /ko-app/cosign verify --key k8s://concourse-online-boutique/signing-key $REPOSITORY@$DIGEST 
+
+update_image_tags: &update_image_tags
+  platform: linux
+  image_resource:
+    source:
+      repository: mikefarah/yq
+      tag: 4
+    type: registry-image
+  inputs:
+  - name: image
+  - name: source
+  outputs:
+  - name: source
+  run:
+    user: root
+    path: sh
+    args:
+      - -c 
+      - |
+        export DIGEST=$(cat image/digest)
+        yq -i ".spec.values.images.tag = .spec.values.images.tag + \"@${DIGEST}\"" source/manifests/adservice-chart.yaml
+
 resources:
-- name: source
-  type: git
-  icon: github
-  source:
-    uri: https://github.com/crdant/microservices-demo.git
-    paths: 
-    - src/adservice/**
 - name: release
   type: git
   icon: github
   source:
     uri: https://github.com/crdant/online-boutique-replicated.git
-    branch: feature-use-own-images
     paths: 
     - manifests/**
-- name: image
+    <<*: *git_credentials
+- name: version
+  type: semver
+  icon: counter
+  source:
+    driver: git
+    uri: https://github.com/crdant/online-boutique-replicated.git
+    branch: version
+    <<*: *git_credentials
+- name: adservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/adservice
-    username: ((registry.robot))
-    password: ((registry.token))
     tag: edge
+    <<: *registry_credentials
+- name: cartservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/cartservice
+    tag: edge
+    <<: *registry_credentials
+- name: checkoutservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/checkoutservice
+    tag: edge
+    <<: *registry_credentials
+- name: currencyservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/currencyservice
+    tag: edge
+    <<: *registry_credentials
+- name: emailservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/emailservice
+    tag: edge
+    <<: *registry_credentials
+- name: frontend
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/frontend
+    tag: edge
+    <<: *registry_credentials
+- name: paymentservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/paymentservice
+    tag: edge
+    <<: *registry_credentials
+- name: productcatalogservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/productcatalogservice
+    tag: edge
+    <<: *registry_credentials
+- name: recommendationservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/recommendationservice
+    tag: edge
+    <<: *registry_credentials
+- name: shippingservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/shippingservice
+    tag: edge
+    <<: *registry_credentials
 
 jobs:
-- name: test
+- name: verify-adservice
   plan:
-  - get: source
+  - get: adservice  
     trigger: true
-  - task: check
-    config:
-      platform: linux
-      inputs:
-      - name: source
-      image_resource:
-        source:
-          repository: gradle
-          tag: 8.0.2-jdk19-jammy
-        type: registry-image
-      caches:
-      - path: $HOME/.m2/repository
-      - path: $HOME/.gradle/caches/
-      - path: $HOME/.gradle/wrapper/
-      run:
-        path: /bin/sh
-        dir: source/src/adservice
-        args:
-        - -c
-        - |
-          java -Xmx32m -version
-          javac -J-Xmx32m -version
-
-          gradle wrapper
-          ./gradlew test
-
-- name: build
-  plan:
-  - get: source
-    trigger: true
-    passed:
-    - test
-  - task: build
-    privileged: true
-    output_mapping:
-      image: build
-    config:
-      platform: linux
-      image_resource:
-        type: registry-image
-        source:
-          repository: concourse/oci-build-task
-      params:
-        CONTEXT: source/src/adservice        
-      inputs:
-      - name: source
-      outputs:
-      - name: image
-      run:
-        path: build
-  - put: image
-    params: 
-      image: build/image.tar
-  
-- name: sign
-  plan:
-  - get: image
-    trigger: true
-    passed:
-    - build
-  - task: sign
+  - task: verify
+    input_mapping:
+      image: adservice
     params:
-      KUBECONFIG_JSON: ((kubeconfig))
-      DOCKERCONFIG_JSON: ((registry.config))
+      <<: *cosign_credentials
     config:
-      platform: linux
-      image_resource:
-        source:
-          repository: gcr.io/projectsigstore/cosign
-          tag: v2.0.0
-        type: registry-image
-      inputs:
-      - name: image
-      run:
-        path: /busybox/sh
-        args:
-          - -c
-          - |
-            umask 077
-            mkdir ${HOME}/.kube
-            echo "$KUBECONFIG_JSON" > ${HOME}/.kube/config
+      <<: *cosign_verify
 
-            mkdir ${HOME}/.docker
-            echo "$DOCKERCONFIG_JSON" > ${HOME}/.docker/config.json
+- name: verify-cartservice
+  plan:
+  - get: cartservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: cartservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
 
-            export DIGEST=$(cat image/digest)
-            /ko-app/cosign version 
-            /ko-app/cosign sign --yes --key k8s://concourse-online-boutique/signing-key registry.shortrib.dev/online-boutique/adservice@$DIGEST 
+- name: verify-checkoutservice
+  plan:
+  - get: checkoutservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: checkoutservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-currencyservice
+  plan:
+  - get: currencyservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: currencyservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-emailservice
+  plan:
+  - get: emailservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: emailservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-frontend
+  plan:
+  - get: frontend  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: frontend
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-paymentservice
+  plan:
+  - get: paymentservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: paymentservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-productcatalogservice
+  plan:
+  - get: productcatalogservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: productcatalogservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-recommendationservice
+  plan:
+  - get: recommendationservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: recommendationservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-shippingservice
+  plan:
+  - get: shippingservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: shippingservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: prepare-adservice
+  plan:
+  - get: release
+    trigger: true
+  - get: adservice  
+    trigger: true
+    passed:
+    - verify-adservice
+  - get: version
+    params:
+      bump: patch
+  - load_var: version
+    file: version/version
+  - task: update-image-tags
+    input_mapping:
+      source: release
+      image: adservice
+    config:
+      <<: *update_image_tags
+  - put: release
+    params:
+      branch: release-((version))
+  - put: version
