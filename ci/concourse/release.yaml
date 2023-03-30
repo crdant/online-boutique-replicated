@@ -68,7 +68,7 @@ update_image_tags: &update_image_tags
         cd source 
         yq -i ".spec.values.images.tag = \"edge@${DIGEST}\"" manifests/adservice-chart.yaml
         git config --global user.name "Online Boutique Release Pipeline"
-        git config --global user.email "concourse@shortrib.io"
+        git config --global user.email "chuck@replicated.com"
         git config --global user.signingkey ${SSH_KEY_DIR}/signingkey
         git config --global gpg.format ssh 
         git config --global commit.gpgsign true 
@@ -361,8 +361,9 @@ jobs:
           - |
             OUTPUT_DIR=$(pwd)/pr
 
+            set -x
             cd next-release
-            gh auth login --with-token <(echo ${GITHUB_TOKEN})
+            gh auth login -h github.com
             gh pr create --head ${RELEASE_BRANCH} \
                 --title "Bumps Ad Service to latest image" \
                 --body "${PR_BODY}" \
@@ -388,6 +389,7 @@ jobs:
           - |
             PR_URL=$(cat pr/url)
 
-            gh auth login --with-token <(echo ${GITHUB_TOKEN})
+            set -x
+            gh auth login -h github.com
             gh pr merge ${PR_URL}
 
