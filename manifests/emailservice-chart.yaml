@@ -8,16 +8,13 @@ spec:
   chart:
     name: onlineboutique
     chartVersion: 0.6.0
-    releaseName: emailservice 
-     
+    releaseName: emailservice
   # useHelmInstall identifies whether this Helm chart will use the
   # Replicated Helm installation (false) or native Helm installation (true). Default is false.
   # Native Helm installations are only available for Helm v3 charts.
   useHelmInstall: true
- 
   # weight determines the order that charts with "useHelmInstall: true" are applied, with lower weights first.
   weight: 10
-
   # values are used in the customer environment, as a pre-render step
   # these values will be supplied to helm template
   values:
@@ -30,19 +27,17 @@ spec:
     # image tag can vary per team
     images:
       repository: registry.shortrib.dev/online-boutique
-      tag: edge
-    
+      tag: edge@
     # enable the specific services this instance represents
     emailService:
       create: true
-
     # disable other services
     adService:
       create: false
     cartService:
       create: false
     checkoutService:
-      create: false 
+      create: false
     currencyService:
       create: false
     frontend:
@@ -60,4 +55,3 @@ spec:
     cartDatabase:
       inClusterRedis:
         create: false
-
