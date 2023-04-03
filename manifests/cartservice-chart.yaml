@@ -8,16 +8,13 @@ spec:
   chart:
     name: onlineboutique
     chartVersion: 0.6.0
-    releaseName: cartservice 
-
+    releaseName: cartservice
   # useHelmInstall identifies whether this Helm chart will use the
   # Replicated Helm installation (false) or native Helm installation (true). Default is false.
   # Native Helm installations are only available for Helm v3 charts.
   useHelmInstall: true
- 
   # weight determines the order that charts with "useHelmInstall: true" are applied, with lower weights first.
   weight: 10
-
   # values are used in the customer environment, as a pre-render step
   # these values will be supplied to helm template
   values:
@@ -30,12 +27,10 @@ spec:
     # image tag can vary per team
     images:
       repository: registry.shortrib.dev/online-boutique
-      tag: edge
-    
+      tag: edge@
     # enable the specific services this instance represents
     cartService:
       create: true
-
     # disable other services
     adService:
       create: false
@@ -57,22 +52,20 @@ spec:
       create: false
     shippingService:
       create: false
-
   optionalValues:
-  - when: '{{repl ConfigOptionEquals "redis_type" "embedded_redis"}}'
-    recursiveMerge: false
-    cartDatabase:
-      # Specifies the type of the cartservice's database, could be either redis or spanner.
-      type: redis
-      connectionString: "redis-cart:6379"
-      inClusterRedis:
-        create: true
-
-  - when: '{{repl ConfigOptionEquals "redis_type" "external_redis"}}'
-    recursiveMerge: false
-    cartDatabase:
-      # Specifies the type of the cartservice's database, could be either redis or spanner.
-      type: redis
-      connectionString: '{{repl ConfigOption "external_redis_host"}}:{{repl ConfigOption "external_redis_port"}}' 
-      inClusterRedis:
-        create: false
+    - when: '{{repl ConfigOptionEquals "redis_type" "embedded_redis"}}'
+      recursiveMerge: false
+      cartDatabase:
+        # Specifies the type of the cartservice's database, could be either redis or spanner.
+        type: redis
+        connectionString: "redis-cart:6379"
+        inClusterRedis:
+          create: true
+    - when: '{{repl ConfigOptionEquals "redis_type" "external_redis"}}'
+      recursiveMerge: false
+      cartDatabase:
+        # Specifies the type of the cartservice's database, could be either redis or spanner.
+        type: redis
+        connectionString: '{{repl ConfigOption "external_redis_host"}}:{{repl ConfigOption "external_redis_port"}}'
+        inClusterRedis:
+          create: false
