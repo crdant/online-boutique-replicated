@@ -38,6 +38,7 @@ pipelines:
 	@fly --target boutique set-pipeline --pipeline emailservice --config ci/concourse/emailservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline emailservice
 	@fly --target boutique set-pipeline --pipeline frontend --config ci/concourse/frontend/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline frontend
 	@fly --target boutique set-pipeline --pipeline paymentservice --config ci/concourse/paymentservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline paymentservice
+	@fly --target boutique set-pipeline --pipeline productcatalogservice --config ci/concourse/productcatalogservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline productcatalogservice
 	@fly --target boutique set-pipeline --pipeline recommendationservice --config ci/concourse/recommendationservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline recommendationservice
 	@fly --target boutique set-pipeline --pipeline shippingservice --config ci/concourse/shippingservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline shippingservice
 
