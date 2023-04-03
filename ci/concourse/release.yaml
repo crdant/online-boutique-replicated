@@ -341,7 +341,7 @@ jobs:
           - |
             export SSH_KEY_DIR=$(pwd)/ssh
 
-            function update_tag() {
+            function update_image_hash() {
               service=${1}
               digest=$(cat ${SERVICE}/digest)
               yq -i ".spec.values.images.tag = \"edge@${digest}\"" source/manifests/${service}-chart.yaml
@@ -354,16 +354,16 @@ jobs:
             # to sign the commit
             echo 'root:*:0:0:System Administrator:/var/root:/bin/sh' > /etc/passwd
 
-            update_image_tag adservice
-            update_image_tag cartservice
-            update_image_tag checkoutservice
-            update_image_tag currencyservice
-            update_image_tag emailservice
-            update_image_tag frontend
-            update_image_tag paymentservice
-            update_image_tag productcatalogservice
-            update_image_tag recommendationservice
-            update_image_tag shippingservice
+            update_image_hash adservice
+            update_image_hash cartservice
+            update_image_hash checkoutservice
+            update_image_hash currencyservice
+            update_image_hash emailservice
+            update_image_hash frontend
+            update_image_hash paymentservice
+            update_image_hash productcatalogservice
+            update_image_hash recommendationservice
+            update_image_hash shippingservice
 
             cd source 
             git config --global user.name "Online Boutique Release Pipeline"
