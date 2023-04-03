@@ -3,36 +3,22 @@ resources:
   type: git
   icon: github
   source:
-<<<<<<< HEAD
     uri: https://github.com/crdant/microservices-demo.git
-=======
-    uri: https://github.com/GoogleCloudPlatform/microservices-demo.git
->>>>>>> 6a857ae (Proivdes a build pipeline for the adservice)
     paths: 
     - src/adservice/**
 - name: image
   type: registry-image
   icon: oci 
   source:
-<<<<<<< HEAD
     repository: registry.shortrib.dev/online-boutique/adservice
     username: ((registry.robot))
     password: ((registry.token))
     tag: edge
-=======
-    repositoy: registry.shortrib.dev/online-boutique/adservice
-    username: ((regisry.robot))
-    password: ((resistry.token))
->>>>>>> 6a857ae (Proivdes a build pipeline for the adservice)
 
 jobs:
 - name: test
   plan:
-<<<<<<< HEAD
   - get: source
-=======
-  - get: adservice
->>>>>>> 6a857ae (Proivdes a build pipeline for the adservice)
     trigger: true
   - task: check
     config:
@@ -40,16 +26,9 @@ jobs:
       inputs:
       - name: source
       image_resource:
-<<<<<<< HEAD
         source:
           repository: gradle
           tag: 8.0.2-jdk19-jammy
-=======
-        name: ""
-        source:
-          repository: gradle
-          tag: 8.0.2-jdk17-alpine
->>>>>>> 6a857ae (Proivdes a build pipeline for the adservice)
         type: registry-image
       caches:
       - path: $HOME/.m2/repository
