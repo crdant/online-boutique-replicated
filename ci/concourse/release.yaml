@@ -37,45 +37,6 @@ cosign_verify: &cosign_verify
         /ko-app/cosign version 
         /ko-app/cosign verify --key k8s://concourse-online-boutique/signing-key $REPOSITORY@$DIGEST 
 
-update_image_tags: &update_image_tags
-  platform: linux
-  image_resource:
-    source:
-      repository: nixery.dev/shell/openssh/git/yq-go
-      tag: latest
-    type: registry-image
-  inputs:
-  - name: image
-  - name: source
-  outputs:
-  - name: source
-  run:
-    user: root
-    path: bash
-    args:
-      - -c 
-      - |
-        export SSH_KEY_DIR=$(pwd)/ssh
-        export DIGEST=$(cat image/digest)
-        umask 077
-        mkdir $SSH_KEY_DIR
-        echo '((github.signing_priv_key))' >> ${SSH_KEY_DIR}/signingkey
-        # this is a hack for now to get past an error, will likely need to switch
-        # from the nixery image and build one with a passwd file in order to use SSH
-        # to sign the commit
-        echo 'root:*:0:0:System Administrator:/var/root:/bin/sh' > /etc/passwd
-
-        cd source 
-        yq -i ".spec.values.images.tag = \"edge@${DIGEST}\"" manifests/adservice-chart.yaml
-        git config --global user.name "Online Boutique Release Pipeline"
-        git config --global user.email "chuck@replicated.com"
-        git config --global user.signingkey ${SSH_KEY_DIR}/signingkey
-        git config --global gpg.format ssh 
-        git config --global commit.gpgsign true 
-
-        git add manifests/adservice-chart.yaml
-        git commit -m "Updates adservice digest to ${DIGEST}"
-
 resources:
 - name: current-release
   type: git
@@ -295,15 +256,50 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: prepare-adservice
+- name: prepare-release
   plan:
   - get: current-release
-    trigger: true
   - get: next-release
   - get: adservice  
     trigger: true
     passed:
     - verify-adservice
+  - get: cartservice  
+    trigger: true
+    passed:
+    - verify-cartservice
+  - get: checkoutservice  
+    trigger: true
+    passed:
+    - verify-checkoutservice
+  - get: currencyservice  
+    trigger: true
+    passed:
+    - verify-currencyservice
+  - get: emailservice  
+    trigger: true
+    passed:
+    - verify-emailservice
+  - get: frontend  
+    trigger: true
+    passed:
+    - verify-frontend
+  - get: paymentservice  
+    trigger: true
+    passed:
+    - verify-paymentservice
+  - get: productcatalogservice  
+    trigger: true
+    passed:
+    - verify-productcatalogservice
+  - get: recommendationservice  
+    trigger: true
+    passed:
+    - verify-recommendationservice
+  - get: shippingservice  
+    trigger: true
+    passed:
+    - verify-shippingservice
   - put: version
     params:
       get_latest: true
@@ -317,7 +313,67 @@ jobs:
     output_mapping:
       source: next-release
     config:
-      <<: *update_image_tags
+      platform: linux
+      image_resource:
+        source:
+          repository: nixery.dev/shell/openssh/git/yq-go
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: source
+      - name: adservice
+      - name: cartservice
+      - name: checkoutservice
+      - name: currencyservice
+      - name: emailservice
+      - name: frontend
+      - name: paymentservice
+      - name: productcatalogservice
+      - name: recommendationservice
+      - name: shippingservice
+      outputs:
+      - name: source
+      run:
+        user: root
+        path: bash
+        args:
+          - -c 
+          - |
+            export SSH_KEY_DIR=$(pwd)/ssh
+
+            function update_tag() {
+              service=${1}
+              digest=$(cat ${SERVICE}/digest)
+              yq -i ".spec.values.images.tag = \"edge@${digest}\"" source/manifests/${service}-chart.yaml
+            }
+            umask 077
+            mkdir $SSH_KEY_DIR
+            echo '((github.signing_priv_key))' >> ${SSH_KEY_DIR}/signingkey
+            # this is a hack for now to get past an error, will likely need to switch
+            # from the nixery image and build one with a passwd file in order to use SSH
+            # to sign the commit
+            echo 'root:*:0:0:System Administrator:/var/root:/bin/sh' > /etc/passwd
+
+            update_image_tag adservice
+            update_image_tag cartservice
+            update_image_tag checkoutservice
+            update_image_tag currencyservice
+            update_image_tag emailservice
+            update_image_tag frontend
+            update_image_tag paymentservice
+            update_image_tag productcatalogservice
+            update_image_tag recommendationservice
+            update_image_tag shippingservice
+
+            cd source 
+            git config --global user.name "Online Boutique Release Pipeline"
+            git config --global user.email "chuck@replicated.com"
+            git config --global user.signingkey ${SSH_KEY_DIR}/signingkey
+            git config --global gpg.format ssh 
+            git config --global commit.gpgsign true 
+
+            git add manifests/*-chart.yaml
+            git commit -m "Updates adservice digest to ${DIGEST}"
   - put: next-release
     params:
       repository: next-release
@@ -331,8 +387,10 @@ jobs:
   - get: next-release
     trigger: true
     passed:
-    - prepare-adservice
+    - prepare-release
   - get: version
+    passed:
+    - prepare-release
   - load_var: version
     file: version/version
   - task: create-pull-request
@@ -361,7 +419,6 @@ jobs:
           - |
             OUTPUT_DIR=$(pwd)/pr
 
-            set -x
             cd next-release
             gh auth login -h github.com
             gh pr create --head ${RELEASE_BRANCH} \
@@ -371,7 +428,6 @@ jobs:
   - task: merge-pull-request
     params:
       GITHUB_TOKEN: ((github.password))
-        the Ad Service image.
     config:
       platform: linux
       image_resource:
@@ -380,6 +436,7 @@ jobs:
           tag: latest
         type: registry-image
       inputs:
+      - name: next-release
       - name: pr
       run:
         user: root
@@ -391,5 +448,47 @@ jobs:
 
             set -x
             gh auth login -h github.com
-            gh pr merge ${PR_URL}
+            gh pr merge --merge --match-head-commit $(cat next-release/.git/ref) ${PR_URL}
 
+- name: replicated-release
+  plan:
+  - get: next-release
+    trigger: true
+    passed:
+    - merge-changes
+  - get: version
+    passed:
+    - merge-changes
+  - load_var: version
+    file: version/version
+  - task: release-app
+    params:
+      REPLICATED_APP: online-boutique
+      REPLICATED_API_TOKEN: ((replicated.token))
+      VERSION: ((.:version))
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: replicated/vendor-cli
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: next-release
+      run:
+        user: root
+        path: sh
+        dir: next-release
+        args:
+          - -c 
+          - |
+            RELEASE_NOTES="$(cat .git/commit_message)"
+    
+            /replicated release create \
+              --app ${REPLICATED_APP} \
+              --token ${REPLICATED_API_TOKEN} \
+              --version ${VERSION} \
+              --release-notes "${RELEASE_NOTES}" \
+              --yaml-dir manifests \
+              --ensure-channel \
+              --promote edge
