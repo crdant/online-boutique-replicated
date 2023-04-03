@@ -1,118 +1,494 @@
+registry_credentials: &registry_credentials
+  username: ((registry.robot))
+  password: ((registry.token))
+
+cosign_credentials: &cosign_credentials
+  KUBECONFIG_JSON: ((kubeconfig))
+  DOCKERCONFIG_JSON: ((registry.config))
+
+git_credentials: &git_credentials
+  username: ((github.username))
+  password: ((github.password))
+  signingkey: ((github.signing_priv_key))
+
+cosign_verify: &cosign_verify
+  platform: linux
+  image_resource:
+    source:
+      repository: gcr.io/projectsigstore/cosign
+      tag: v2.0.0
+    type: registry-image
+  inputs:
+  - name: image
+  run:
+    path: /busybox/sh
+    args:
+      - -c
+      - |
+        umask 077
+        mkdir ${HOME}/.kube
+        echo "$KUBECONFIG_JSON" > ${HOME}/.kube/config
+
+        mkdir ${HOME}/.docker
+        echo "$DOCKERCONFIG_JSON" > ${HOME}/.docker/config.json
+
+        export REPOSITORY=$(cat image/repository)
+        export DIGEST=$(cat image/digest)
+        /ko-app/cosign version 
+        /ko-app/cosign verify --key k8s://concourse-online-boutique/signing-key $REPOSITORY@$DIGEST 
+
 resources:
-- name: source
-  type: git
-  icon: github
-  source:
-    uri: https://github.com/crdant/microservices-demo.git
-    paths: 
-    - src/adservice/**
-- name: release
+- name: current-release
   type: git
   icon: github
   source:
     uri: https://github.com/crdant/online-boutique-replicated.git
-    branch: feature-use-own-images
+    branch: main
     paths: 
     - manifests/**
-- name: image
+    <<: *git_credentials
+- name: next-release
+  type: git
+  icon: github
+  source:
+    uri: https://github.com/crdant/online-boutique-replicated.git
+    paths: 
+    - manifests/**
+    <<: *git_credentials
+- name: version
+  type: semver
+  icon: counter
+  source:
+    driver: git
+    uri: https://github.com/crdant/online-boutique-replicated.git
+    branch: version
+    file: version
+    <<: *git_credentials
+- name: adservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/adservice
-    username: ((registry.robot))
-    password: ((registry.token))
     tag: edge
+    <<: *registry_credentials
+- name: cartservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/cartservice
+    tag: edge
+    <<: *registry_credentials
+- name: checkoutservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/checkoutservice
+    tag: edge
+    <<: *registry_credentials
+- name: currencyservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/currencyservice
+    tag: edge
+    <<: *registry_credentials
+- name: emailservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/emailservice
+    tag: edge
+    <<: *registry_credentials
+- name: frontend
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/frontend
+    tag: edge
+    <<: *registry_credentials
+- name: paymentservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/paymentservice
+    tag: edge
+    <<: *registry_credentials
+- name: productcatalogservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/productcatalogservice
+    tag: edge
+    <<: *registry_credentials
+- name: recommendationservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/recommendationservice
+    tag: edge
+    <<: *registry_credentials
+- name: shippingservice
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/shippingservice
+    tag: edge
+    <<: *registry_credentials
 
 jobs:
-- name: test
+- name: verify-adservice
   plan:
-  - get: source
+  - get: adservice  
     trigger: true
-  - task: check
-    config:
-      platform: linux
-      inputs:
-      - name: source
-      image_resource:
-        source:
-          repository: gradle
-          tag: 8.0.2-jdk19-jammy
-        type: registry-image
-      caches:
-      - path: $HOME/.m2/repository
-      - path: $HOME/.gradle/caches/
-      - path: $HOME/.gradle/wrapper/
-      run:
-        path: /bin/sh
-        dir: source/src/adservice
-        args:
-        - -c
-        - |
-          java -Xmx32m -version
-          javac -J-Xmx32m -version
-
-          gradle wrapper
-          ./gradlew test
-
-- name: build
-  plan:
-  - get: source
-    trigger: true
-    passed:
-    - test
-  - task: build
-    privileged: true
-    output_mapping:
-      image: build
-    config:
-      platform: linux
-      image_resource:
-        type: registry-image
-        source:
-          repository: concourse/oci-build-task
-      params:
-        CONTEXT: source/src/adservice        
-      inputs:
-      - name: source
-      outputs:
-      - name: image
-      run:
-        path: build
-  - put: image
-    params: 
-      image: build/image.tar
-  
-- name: sign
-  plan:
-  - get: image
-    trigger: true
-    passed:
-    - build
-  - task: sign
+  - task: verify
+    input_mapping:
+      image: adservice
     params:
-      KUBECONFIG_JSON: ((kubeconfig))
-      DOCKERCONFIG_JSON: ((registry.config))
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-cartservice
+  plan:
+  - get: cartservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: cartservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-checkoutservice
+  plan:
+  - get: checkoutservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: checkoutservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-currencyservice
+  plan:
+  - get: currencyservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: currencyservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-emailservice
+  plan:
+  - get: emailservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: emailservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-frontend
+  plan:
+  - get: frontend  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: frontend
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-paymentservice
+  plan:
+  - get: paymentservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: paymentservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-productcatalogservice
+  plan:
+  - get: productcatalogservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: productcatalogservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-recommendationservice
+  plan:
+  - get: recommendationservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: recommendationservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-shippingservice
+  plan:
+  - get: shippingservice  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: shippingservice
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: prepare-release
+  plan:
+  - get: current-release
+  - get: next-release
+  - get: adservice  
+    trigger: true
+    passed:
+    - verify-adservice
+  - get: cartservice  
+    trigger: true
+    passed:
+    - verify-cartservice
+  - get: checkoutservice  
+    trigger: true
+    passed:
+    - verify-checkoutservice
+  - get: currencyservice  
+    trigger: true
+    passed:
+    - verify-currencyservice
+  - get: emailservice  
+    trigger: true
+    passed:
+    - verify-emailservice
+  - get: frontend  
+    trigger: true
+    passed:
+    - verify-frontend
+  - get: paymentservice  
+    trigger: true
+    passed:
+    - verify-paymentservice
+  - get: productcatalogservice  
+    trigger: true
+    passed:
+    - verify-productcatalogservice
+  - get: recommendationservice  
+    trigger: true
+    passed:
+    - verify-recommendationservice
+  - get: shippingservice  
+    trigger: true
+    passed:
+    - verify-shippingservice
+  - put: version
+    params:
+      get_latest: true
+      bump: patch
+  - load_var: version
+    file: version/version
+  - task: update-image-tags
+    input_mapping:
+      source: next-release
+      image: adservice
+    output_mapping:
+      source: next-release
     config:
       platform: linux
       image_resource:
         source:
-          repository: gcr.io/projectsigstore/cosign
-          tag: v2.0.0
+          repository: nixery.dev/shell/openssh/git/yq-go
+          tag: latest
         type: registry-image
       inputs:
-      - name: image
+      - name: source
+      - name: adservice
+      - name: cartservice
+      - name: checkoutservice
+      - name: currencyservice
+      - name: emailservice
+      - name: frontend
+      - name: paymentservice
+      - name: productcatalogservice
+      - name: recommendationservice
+      - name: shippingservice
+      outputs:
+      - name: source
       run:
-        path: /busybox/sh
+        user: root
+        path: bash
         args:
-          - -c
+          - -c 
           - |
+            export SSH_KEY_DIR=$(pwd)/ssh
+
+            function update_image_hash() {
+              service=${1}
+              digest=$(cat ${SERVICE}/digest)
+              yq -i ".spec.values.images.tag = \"edge@${digest}\"" source/manifests/${service}-chart.yaml
+            }
             umask 077
-            mkdir ${HOME}/.kube
-            echo "$KUBECONFIG_JSON" > ${HOME}/.kube/config
+            mkdir $SSH_KEY_DIR
+            echo '((github.signing_priv_key))' >> ${SSH_KEY_DIR}/signingkey
+            # this is a hack for now to get past an error, will likely need to switch
+            # from the nixery image and build one with a passwd file in order to use SSH
+            # to sign the commit
+            echo 'root:*:0:0:System Administrator:/var/root:/bin/sh' > /etc/passwd
 
-            mkdir ${HOME}/.docker
-            echo "$DOCKERCONFIG_JSON" > ${HOME}/.docker/config.json
+            update_image_hash adservice
+            update_image_hash cartservice
+            update_image_hash checkoutservice
+            update_image_hash currencyservice
+            update_image_hash emailservice
+            update_image_hash frontend
+            update_image_hash paymentservice
+            update_image_hash productcatalogservice
+            update_image_hash recommendationservice
+            update_image_hash shippingservice
 
-            export DIGEST=$(cat image/digest)
-            /ko-app/cosign version 
-            /ko-app/cosign sign --yes --key k8s://concourse-online-boutique/signing-key registry.shortrib.dev/online-boutique/adservice@$DIGEST 
+            cd source 
+            git config --global user.name "Online Boutique Release Pipeline"
+            git config --global user.email "chuck@replicated.com"
+            git config --global user.signingkey ${SSH_KEY_DIR}/signingkey
+            git config --global gpg.format ssh 
+            git config --global commit.gpgsign true 
+
+            git add manifests/*-chart.yaml
+            git commit -m "Updates adservice digest to ${DIGEST}"
+  - put: next-release
+    params:
+      repository: next-release
+      branch: release-((.:version))
+  - put: version
+    params:
+      file: version/version
+
+- name: merge-changes
+  plan:
+  - get: next-release
+    trigger: true
+    passed:
+    - prepare-release
+  - get: version
+    passed:
+    - prepare-release
+  - load_var: version
+    file: version/version
+  - task: create-pull-request
+    params:
+      GITHUB_TOKEN: ((github.password))
+      RELEASE_BRANCH: release-((.:version))
+      PR_BODY: |
+        Automatic update of application manifests in response to updates to
+        the Ad Service image.
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: nixery.dev/shell/git/gh
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: next-release
+      outputs:
+      - name: pr
+      run:
+        user: root
+        path: bash
+        args:
+          - -c 
+          - |
+            OUTPUT_DIR=$(pwd)/pr
+
+            cd next-release
+            gh auth login -h github.com
+            gh pr create --head ${RELEASE_BRANCH} \
+                --title "Bumps Ad Service to latest image" \
+                --body "${PR_BODY}" \
+              > ${OUTPUT_DIR}/url
+  - task: merge-pull-request
+    params:
+      GITHUB_TOKEN: ((github.password))
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: nixery.dev/shell/git/gh
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: next-release
+      - name: pr
+      run:
+        user: root
+        path: bash
+        args:
+          - -c 
+          - |
+            PR_URL=$(cat pr/url)
+
+            set -x
+            gh auth login -h github.com
+            gh pr merge --merge --match-head-commit $(cat next-release/.git/ref) ${PR_URL}
+
+- name: replicated-release
+  plan:
+  - get: next-release
+    trigger: true
+    passed:
+    - merge-changes
+  - get: version
+    passed:
+    - merge-changes
+  - load_var: version
+    file: version/version
+  - task: release-app
+    params:
+      REPLICATED_APP: online-boutique
+      REPLICATED_API_TOKEN: ((replicated.token))
+      VERSION: ((.:version))
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: replicated/vendor-cli
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: next-release
+      run:
+        user: root
+        path: sh
+        dir: next-release
+        args:
+          - -c 
+          - |
+            RELEASE_NOTES="$(cat .git/commit_message)"
+    
+            /replicated release create \
+              --app ${REPLICATED_APP} \
+              --token ${REPLICATED_API_TOKEN} \
+              --version ${VERSION} \
+              --release-notes "${RELEASE_NOTES}" \
+              --yaml-dir manifests \
+              --ensure-channel \
+              --promote edge
