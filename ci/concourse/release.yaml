@@ -300,9 +300,8 @@ jobs:
     trigger: true
     passed:
     - verify-shippingservice
-  - put: version
+  - get: version
     params:
-      get_latest: true
       bump: patch
   - load_var: version
     file: version/version
@@ -343,7 +342,7 @@ jobs:
 
             function update_image_hash() {
               service=${1}
-              digest=$(cat ${SERVICE}/digest)
+              digest=$(cat ${service}/digest)
               yq -i ".spec.values.images.tag = \"edge@${digest}\"" source/manifests/${service}-chart.yaml
             }
             umask 077
