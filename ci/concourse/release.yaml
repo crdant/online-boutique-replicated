@@ -300,9 +300,8 @@ jobs:
     trigger: true
     passed:
     - verify-shippingservice
-  - put: version
+  - get: version
     params:
-      get_latest: true
       bump: patch
   - load_var: version
     file: version/version
