@@ -11,6 +11,39 @@ git_credentials: &git_credentials
   password: ((github.password))
   signingkey: ((github.signing_priv_key))
 
+get_edge_images: &get_edge_images
+  steps:
+  - get: adservice-edge
+    passed:
+    - bump-patch-version
+  - get: cartservice-edge
+    passed:
+    - bump-patch-version
+  - get: checkoutservice-edge
+    passed:
+    - bump-patch-version
+  - get: currencyservice-edge
+    passed:
+    - bump-patch-version
+  - get: emailservice-edge
+    passed:
+    - bump-patch-version
+  - get: frontend-edge
+    passed:
+    - bump-patch-version
+  - get: paymentservice-edge
+    passed:
+    - bump-patch-version
+  - get: productcatalogservice-edge
+    passed:
+    - bump-patch-version
+  - get: recommendationservice-edge
+    passed:
+    - bump-patch-version
+  - get: shippingservice-edge
+    passed:
+    - bump-patch-version
+
 cosign_verify: &cosign_verify
   platform: linux
   image_resource:
@@ -37,38 +70,70 @@ cosign_verify: &cosign_verify
         /ko-app/cosign version 
         /ko-app/cosign verify --key k8s://concourse-online-boutique/signing-key $REPOSITORY@$DIGEST 
 
-get_images: &get_images
-  steps:
-  - get: adservice  
-    passed:
-    - bump-version
-  - get: cartservice  
-    passed:
-    - bump-version
-  - get: checkoutservice  
-    passed:
-    - bump-version
-  - get: currencyservice  
-    passed:
-    - bump-version
-  - get: emailservice  
-    passed:
-    - bump-version
-  - get: frontend  
-    passed:
-    - bump-version
-  - get: paymentservice  
-    passed:
-    - bump-version
-  - get: productcatalogservice  
-    passed:
-    - bump-version
-  - get: recommendationservice  
-    passed:
-    - bump-version
-  - get: shippingservice  
-    passed:
-    - bump-version
+prepare_release: &prepare_release
+  platform: linux
+  image_resource:
+    source:
+      repository: nixery.dev/shell/openssh/git/yq-go
+      tag: latest
+    type: registry-image
+  inputs:
+  - name: source
+  - name: adservice
+  - name: cartservice
+  - name: checkoutservice
+  - name: currencyservice
+  - name: emailservice
+  - name: frontend
+  - name: paymentservice
+  - name: productcatalogservice
+  - name: recommendationservice
+  - name: shippingservice
+  outputs:
+  - name: source
+  run:
+    user: root
+    path: bash
+    args:
+      - -c 
+      - |
+        export SSH_KEY_DIR=$(pwd)/ssh
+
+        function update_image_hash() {
+          service=${1}
+          digest=$(cat ${service}/digest)
+          yq -i ".spec.values.images.tag = \"edge@${digest}\"" source/manifests/${service}-chart.yaml
+        }
+
+        umask 077
+        mkdir $SSH_KEY_DIR
+        echo '((github.signing_priv_key))' >> ${SSH_KEY_DIR}/signingkey
+        
+        # this is a hack for now to get past an error, will likely need to switch
+        # from the nixery image and build one with a passwd file in order to use SSH
+        # to sign the commit
+        echo 'root:*:0:0:System Administrator:/var/root:/bin/sh' > /etc/passwd
+
+        update_image_hash adservice
+        update_image_hash cartservice
+        update_image_hash checkoutservice
+        update_image_hash currencyservice
+        update_image_hash emailservice
+        update_image_hash frontend
+        update_image_hash paymentservice
+        update_image_hash productcatalogservice
+        update_image_hash recommendationservice
+        update_image_hash shippingservice
+
+        cd next-release 
+        git config --global user.name "Online Boutique Release Pipeline"
+        git config --global user.email "chuck@replicated.com"
+        git config --global user.signingkey ${SSH_KEY_DIR}/signingkey
+        git config --global gpg.format ssh 
+        git config --global commit.gpgsign true 
+
+        git add manifests/*-chart.yaml
+        git commit -m "Updates adservice digest to ${DIGEST}"
 
 resources:
 - name: current-release
@@ -167,6 +232,76 @@ resources:
     repository: registry.shortrib.dev/online-boutique/shippingservice
     tag: edge
     <<: *registry_credentials
+- name: adservice-stable
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/adservice
+    tag: stable
+    <<: *registry_credentials
+- name: cartservice-stable
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/cartservice
+    tag: stable
+    <<: *registry_credentials
+- name: checkoutservice-stable
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/checkoutservice
+    tag: stable
+    <<: *registry_credentials
+- name: currencyservice-stable
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/currencyservice
+    tag: stable
+    <<: *registry_credentials
+- name: emailservice-stable
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/emailservice
+    tag: stable
+    <<: *registry_credentials
+- name: frontend-stable
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/frontend
+    tag: stable
+    <<: *registry_credentials
+- name: paymentservice-stable
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/paymentservice
+    tag: stable
+    <<: *registry_credentials
+- name: productcatalogservice-stable
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/productcatalogservice
+    tag: stable
+    <<: *registry_credentials
+- name: recommendationservice-stable
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/recommendationservice
+    tag: stable
+    <<: *registry_credentials
+- name: shippingservice-stable
+  type: registry-image
+  icon: oci 
+  source:
+    repository: registry.shortrib.dev/online-boutique/shippingservice
+    tag: stable
+    <<: *registry_credentials
 
 jobs:
 - name: verify-adservice-edge
@@ -175,7 +310,7 @@ jobs:
     trigger: true
   - task: verify
     input_mapping:
-      image: adservice
+      image: adservice-edge
     params:
       <<: *cosign_credentials
     config:
@@ -187,7 +322,7 @@ jobs:
     trigger: true
   - task: verify
     input_mapping:
-      image: cartservice
+      image: cartservice-edge
     params:
       <<: *cosign_credentials
     config:
@@ -199,7 +334,7 @@ jobs:
     trigger: true
   - task: verify
     input_mapping:
-      image: checkoutservice
+      image: checkoutservice-edge
     params:
       <<: *cosign_credentials
     config:
@@ -211,7 +346,7 @@ jobs:
     trigger: true
   - task: verify
     input_mapping:
-      image: currencyservice
+      image: currencyservice-edge
     params:
       <<: *cosign_credentials
     config:
@@ -223,7 +358,7 @@ jobs:
     trigger: true
   - task: verify
     input_mapping:
-      image: emailservice
+      image: emailservice-edge
     params:
       <<: *cosign_credentials
     config:
@@ -247,7 +382,7 @@ jobs:
     trigger: true
   - task: verify
     input_mapping:
-      image: paymentservice
+      image: paymentservice-edge
     params:
       <<: *cosign_credentials
     config:
@@ -259,7 +394,7 @@ jobs:
     trigger: true
   - task: verify
     input_mapping:
-      image: productcatalogservice
+      image: productcatalogservice-edge
     params:
       <<: *cosign_credentials
     config:
@@ -271,7 +406,7 @@ jobs:
     trigger: true
   - task: verify
     input_mapping:
-      image: recommendationservice
+      image: recommendationservice-edge
     params:
       <<: *cosign_credentials
     config:
@@ -283,13 +418,13 @@ jobs:
     trigger: true
   - task: verify
     input_mapping:
-      image: shippingservice
+      image: shippingservice-edge
     params:
       <<: *cosign_credentials
     config:
       <<: *cosign_verify
 
-- name: bump-version
+- name: bump-patch-version
   plan:
   - get: current-release
   - get: next-release
@@ -345,11 +480,11 @@ jobs:
   - get: version
     trigger: true
     passed:
-    - bump-version
+    - bump-patch-version
   - load_var: version
     file: version/version
   - in_parallel:
-      <<: *get_images
+      <<: *get_edge_images
   - task:  deploy
     params:
       KUBECONFIG_JSON: ((saas.kubeconfig))
@@ -433,21 +568,31 @@ jobs:
               --set loadGenerator.create=false \
               --post-renderer $(pwd)/kustomize.sh
 
-- name: prepare-replicated
+- name: prepare-edge-release
   plan:
   - get: current-release
   - get: next-release
   - in_parallel:
-      <<: *get_images
+      <<: *get_edge_images
   - get: version
     trigger: true
     passed:
-    - bump-version
+    - bump-patch-version
   - load_var: version
     file: version/version
   - task: update-image-tags
     input_mapping:
       source: next-release
+      adservice: adservice-edge
+      cartservice: cartservice-edge
+      checkoutservice: checkoutservice-edge
+      currencyservice: currencyservice-edge
+      emailservice: emailservice-edge
+      frontend: frontend-edge
+      paymentservice: paymentservice-edge
+      productcatalogservice: productcatalogservice-edge
+      recommendationservice: recommendationservice-edge
+      shippingservice: shippingservice-edge
     output_mapping:
       source: next-release
     config:
@@ -545,15 +690,15 @@ jobs:
       repository: next-release
       branch: release-((.:version))
 
-- name: merge-replicated
+- name: merge-edge-release
   plan:
   - get: next-release
     trigger: true
     passed:
-    - prepare-replicated
+    - prepare-edge-release
   - get: version
     passed:
-    - prepare-replicated
+    - prepare-edge-release
   - load_var: version
     file: version/version
   - task: create-pull-request
@@ -617,15 +762,15 @@ jobs:
             gh auth login -h github.com
             gh pr merge --merge --match-head-commit $(cat next-release/.git/ref) ${PR_URL}
 
-- name: release-replicated
+- name: release-edge
   plan:
   - get: next-release
     trigger: true
     passed:
-    - merge-replicated
+    - merge-edge-release
   - get: version
     passed:
-    - merge-replicated
+    - merge-edge-release
   - load_var: version
     file: version/version
   - task: release-app
@@ -659,3 +804,348 @@ jobs:
               --yaml-dir manifests \
               --ensure-channel \
               --promote edge
+
+- name: verify-adservice-stable
+  plan:
+  - get: adservice-stable  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: adservice-stable
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-cartservice-stable
+  plan:
+  - get: cartservice-stable  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: cartservice-stable
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-checkoutservice-stable
+  plan:
+  - get: checkoutservice-stable  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: checkoutservice-stable
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-currencyservice-stable
+  plan:
+  - get: currencyservice-stable  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: currencyservice-stable
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-emailservice-stable
+  plan:
+  - get: emailservice-stable  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: emailservice-stable
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-frontend-stable
+  plan:
+  - get: frontend-stable
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: frontend-stable
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-paymentservice-stable
+  plan:
+  - get: paymentservice-stable  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: paymentservice-stable
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-productcatalogservice-stable
+  plan:
+  - get: productcatalogservice-stable  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: productcatalogservice-stable
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-recommendationservice-stable
+  plan:
+  - get: recommendationservice-stable  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: recommendationservice-stable
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+- name: verify-shippingservice-stable
+  plan:
+  - get: shippingservice-stable  
+    trigger: true
+  - task: verify
+    input_mapping:
+      image: shippingservice-stable
+    params:
+      <<: *cosign_credentials
+    config:
+      <<: *cosign_verify
+
+
+- name: bump-minor-version
+  plan:
+  - get: current-release
+  - get: next-release
+  - get: adservice-stable  
+    trigger: true
+    passed:
+    - verify-adservice-stable
+  - get: cartservice-stable  
+    trigger: true
+    passed:
+    - verify-cartservice-stable
+  - get: checkoutservice-stable  
+    trigger: true
+    passed:
+    - verify-checkoutservice-stable
+  - get: currencyservice-stable  
+    trigger: true
+    passed:
+    - verify-currencyservice-stable
+  - get: emailservice-stable  
+    trigger: true
+    passed:
+    - verify-emailservice-stable
+  - get: frontend-stable
+    trigger: true
+    passed:
+    - verify-frontend-stable
+  - get: paymentservice-stable  
+    trigger: true
+    passed:
+    - verify-paymentservice-stable
+  - get: productcatalogservice-stable  
+    trigger: true
+    passed:
+    - verify-productcatalogservice-stable
+  - get: recommendationservice-stable  
+    trigger: true
+    passed:
+    - verify-recommendationservice-stable
+  - get: shippingservice-stable  
+    trigger: true
+    passed:
+    - verify-shippingservice-stable
+  - get: version
+    params:
+      bump: minor
+  - put: version
+    params:
+      file: version/version
+
+- name: prepare-stable-release
+  plan:
+  - get: current-release
+  - get: next-release
+  - get: adservice-stable
+    passed:
+    - bump-minor-version
+  - get: cartservice-stable
+    passed:
+    - bump-minor-version
+  - get: checkoutservice-stable
+    passed:
+    - bump-minor-version
+  - get: currencyservice-stable
+    passed:
+    - bump-minor-version
+  - get: emailservice-stable
+    passed:
+    - bump-minor-version
+  - get: frontend-stable
+    passed:
+    - bump-minor-version
+  - get: paymentservice-stable
+    passed:
+    - bump-minor-version
+  - get: productcatalogservice-stable
+    passed:
+    - bump-minor-version
+  - get: recommendationservice-stable
+    passed:
+    - bump-minor-version
+  - get: shippingservice-stable
+    passed:
+    - bump-minor-version
+  - get: version
+    trigger: true
+    passed:
+    - bump-minor-version
+  - load_var: version
+    file: version/version
+  - task: update-image-tags
+    input_mapping:
+      source: next-release
+      adservice: adservice-stable
+      cartservice: cartservice-stable
+      checkoutservice: checkoutservice-stable
+      currencyservice: currencyservice-stable
+      emailservice: emailservice-stable
+      frontend: frontend-stable
+      paymentservice: paymentservice-stable
+      productcatalogservice: productcatalogservice-stable
+      recommendationservice: recommendationservice-stable
+      shippingservice: shippingservice-stable
+    output_mapping:
+      source: next-release
+    config:
+      <<: *prepare_release
+  - put: next-release
+    params:
+      repository: next-release
+      branch: release-((.:version))
+
+- name: merge-stable-release
+  plan:
+  - get: next-release
+    trigger: true
+    passed:
+    - prepare-stable-release
+  - get: version
+    passed:
+    - prepare-stable-release
+  - load_var: version
+    file: version/version
+  - task: create-pull-request
+    params:
+      GITHUB_TOKEN: ((github.password))
+      RELEASE_BRANCH: release-((.:version))
+      PR_BODY: |
+        Automatic update of application manifests in response to updates to
+        the Ad Service image.
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: nixery.dev/shell/git/gh
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: next-release
+      outputs:
+      - name: pr
+      run:
+        user: root
+        path: bash
+        args:
+          - -c 
+          - |
+            OUTPUT_DIR=$(pwd)/pr
+
+            cd next-release
+            gh auth login -h github.com
+            gh pr create --head ${RELEASE_BRANCH} \
+                --title "Bumps Ad Service to latest image" \
+                --body "${PR_BODY}" \
+              > ${OUTPUT_DIR}/url
+  - task: merge-pull-request
+    params:
+      GITHUB_TOKEN: ((github.password))
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: nixery.dev/shell/git/gh
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: next-release
+      - name: pr
+      run:
+        user: root
+        path: bash
+        args:
+          - -c 
+          - |
+            PR_URL=$(cat pr/url)
+
+            set -x
+            gh auth login -h github.com
+            gh pr merge --merge --match-head-commit $(cat next-release/.git/ref) ${PR_URL}
+
+- name: release-stable
+  plan:
+  - get: next-release
+    trigger: true
+    passed:
+    - merge-stable-release
+  - get: version
+    passed:
+    - merge-stable-release
+  - load_var: version
+    file: version/version
+  - task: release-app
+    params:
+      REPLICATED_APP: online-boutique
+      REPLICATED_API_TOKEN: ((replicated.token))
+      VERSION: ((.:version))
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: replicated/vendor-cli
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: next-release
+      run:
+        user: root
+        path: sh
+        dir: next-release
+        args:
+          - -c 
+          - |
+            RELEASE_NOTES="$(cat .git/commit_message)"
+    
+            /replicated release create \
+              --app ${REPLICATED_APP} \
+              --token ${REPLICATED_API_TOKEN} \
+              --version ${VERSION} \
+              --release-notes "${RELEASE_NOTES}" \
+              --yaml-dir manifests \
+              --ensure-channel \
+              --promote Stable
