@@ -18,8 +18,8 @@ spec:
     - deployment/recommendationservice
     - deployment/redis-cart
     - deployment/shippingservice
-  replicatedRegistryDomain: registry.shortrib.io
-  proxyRegistryDomain: proxy.shortrib.io
+  # replicatedRegistryDomain: registry.shortrib.io
+  # proxyRegistryDomain: proxy.shortrib.io
   ports:
     - serviceName: frontend
       servicePort: 80
