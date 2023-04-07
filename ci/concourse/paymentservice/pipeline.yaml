@@ -3,7 +3,7 @@ resources:
   type: git
   icon: github
   source:
-    uri: https://github.com/crdant/microservices-demo.git
+    uri: https://github.com/GoogleCloudPlatform/microservices-demo.git
     paths: 
     - src/paymentservice/**
 - name: image
@@ -13,13 +13,25 @@ resources:
     repository: registry.shortrib.dev/online-boutique/paymentservice
     username: ((registry.robot))
     password: ((registry.token))
-    tag: edge
+- name: version
+  type: semver
+  icon: counter
+  source:
+    driver: gcs
+    bucket: online-boutique-semver
+    key: adservice-version
+    json_key: ((gcs.serviceaccountjson))
 
 jobs:
 - name: build
   plan:
   - get: source
     trigger: true
+  - get: version
+    params:
+      bump: patch
+  - load_var: version
+    file: version/version
   - task: build
     privileged: true
     output_mapping:
@@ -41,6 +53,11 @@ jobs:
   - put: image
     params: 
       image: build/image.tar
+      version: ((.:version))
+      bump_aliases: true 
+  - put: version
+    params:
+      file: version/version
   
 - name: sign
   plan:

@@ -13,7 +13,14 @@ resources:
     repository: registry.shortrib.dev/online-boutique/productcatalogservice
     username: ((registry.robot))
     password: ((registry.token))
-    tag: edge
+- name: version
+  type: semver
+  icon: counter
+  source:
+    driver: gcs
+    bucket: online-boutique-semver
+    key: adservice-version
+    json_key: ((gcs.serviceaccountjson))
 
 jobs:
 - name: test
@@ -44,6 +51,11 @@ jobs:
     trigger: true
     passed:
     - test
+  - get: version
+    params:
+      bump: patch
+  - load_var: version
+    file: version/version
   - task: build
     privileged: true
     output_mapping:
@@ -65,6 +77,11 @@ jobs:
   - put: image
     params: 
       image: build/image.tar
+      version: ((.:version))
+      bump_aliases: true 
+  - put: version
+    params:
+      file: version/version
   
 - name: sign
   plan:
