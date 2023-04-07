@@ -37,6 +37,39 @@ cosign_verify: &cosign_verify
         /ko-app/cosign version 
         /ko-app/cosign verify --key k8s://concourse-online-boutique/signing-key $REPOSITORY@$DIGEST 
 
+get_images: &get_images
+  steps:
+  - get: adservice  
+    passed:
+    - bump-version
+  - get: cartservice  
+    passed:
+    - bump-version
+  - get: checkoutservice  
+    passed:
+    - bump-version
+  - get: currencyservice  
+    passed:
+    - bump-version
+  - get: emailservice  
+    passed:
+    - bump-version
+  - get: frontend  
+    passed:
+    - bump-version
+  - get: paymentservice  
+    passed:
+    - bump-version
+  - get: productcatalogservice  
+    passed:
+    - bump-version
+  - get: recommendationservice  
+    passed:
+    - bump-version
+  - get: shippingservice  
+    passed:
+    - bump-version
+
 resources:
 - name: current-release
   type: git
@@ -256,10 +289,8 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: prepare-release
+- name: bump-version
   plan:
-  - get: current-release
-  - get: next-release
   - get: adservice  
     trigger: true
     passed:
@@ -303,14 +334,116 @@ jobs:
   - get: version
     params:
       bump: patch
+  - put: version
+    params:
+      file: version/version
+
+- name: deploy-saas
+  plan:
+  - get: version
+    trigger: true
+    passed:
+    - bump-version
+  - load_var: version
+    file: version/version
+  - in_parallel:
+      <<: *get_images
+  - task:  deploy
+    params:
+      KUBECONFIG_JSON: ((saas.kubeconfig))
+      DOCKERCONFIG_JSON: ((registry.config))
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: nixery.dev/shell/kubernetes-helm/yq-go/kubectl/kustomize/less/neovim
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: adservice
+      - name: cartservice
+      - name: checkoutservice
+      - name: currencyservice
+      - name: emailservice
+      - name: frontend
+      - name: paymentservice
+      - name: productcatalogservice
+      - name: recommendationservice
+      - name: shippingservice
+      run:
+        user: root
+        path: bash
+        args:
+          - -c 
+          - |
+            umask 077
+            mkdir ${HOME}/.kube
+            echo "$KUBECONFIG_JSON" > ${HOME}/.kube/config
+
+            mkdir ${HOME}/.docker
+            echo "$DOCKERCONFIG_JSON" > ${HOME}/.docker/config.json
+
+            function kustomize_service () {
+              service=${1}
+              
+              digest=$(cat ${service}/digest)
+              yq -i ".images += [ { \"name\": \"registry.shortrib.dev/online-boutique/${service}\", \"digest\": \"${digest}\" } ]" kustomization.yaml
+            }
+
+            cat <<SCRIPT > kustomize.sh
+            #!/bin/bash
+            cat > online-boutique.yaml
+            kustomize build .
+            SCRIPT
+            chmod u+x kustomize.sh
+
+            cat <<KUSTOMIZATION > kustomization.yaml
+            resources:
+            - online-boutique.yaml
+            images: []
+            patches:
+            - target:
+                kind: Deployment
+              patch: |-
+                - op: add
+                  path: /spec/template/spec/imagePullSecrets
+                  value: [{ name: registry }]
+            KUSTOMIZATION
+
+            helm version
+            kustomize version
+            kubectl get all -n online-boutique
+
+            kustomize_service adservice
+            kustomize_service cartservice
+            kustomize_service checkoutservice
+            kustomize_service currencyservice
+            kustomize_service emailservice
+            kustomize_service frontend
+            kustomize_service paymentservice
+            kustomize_service productcatalogservice
+            kustomize_service recommendationservice
+            kustomize_service shippingservice
+
+            helm upgrade uncommon-starfish oci://registry.shortrib.dev/online-boutique/onlineboutique \
+              --install --version 0.6.0 \
+              --set images.repository=registry.shortrib.dev/online-boutique \
+              --set loadGenerator.create=false \
+              --post-renderer $(pwd)/kustomize.sh
+
+- name: prepare-replicated
+  plan:
+  - get: current-release
+  - get: next-release
+  - in_parallel:
+      <<: *get_images
+  - get: version
+    trigger: true
+    passed:
+    - bump-version
   - load_var: version
     file: version/version
   - task: update-image-tags
-    input_mapping:
-      source: next-release
-      image: adservice
-    output_mapping:
-      source: next-release
     config:
       platform: linux
       image_resource:
@@ -319,7 +452,7 @@ jobs:
           tag: latest
         type: registry-image
       inputs:
-      - name: source
+      - name: next-release
       - name: adservice
       - name: cartservice
       - name: checkoutservice
@@ -331,7 +464,7 @@ jobs:
       - name: recommendationservice
       - name: shippingservice
       outputs:
-      - name: source
+      - name: next-release
       run:
         user: root
         path: bash
@@ -343,11 +476,13 @@ jobs:
             function update_image_hash() {
               service=${1}
               digest=$(cat ${service}/digest)
-              yq -i ".spec.values.images.tag = \"edge@${digest}\"" source/manifests/${service}-chart.yaml
+              yq -i ".spec.values.images.tag = \"edge@${digest}\"" next-release/manifests/${service}-chart.yaml
             }
+
             umask 077
             mkdir $SSH_KEY_DIR
             echo '((github.signing_priv_key))' >> ${SSH_KEY_DIR}/signingkey
+            
             # this is a hack for now to get past an error, will likely need to switch
             # from the nixery image and build one with a passwd file in order to use SSH
             # to sign the commit
@@ -364,7 +499,7 @@ jobs:
             update_image_hash recommendationservice
             update_image_hash shippingservice
 
-            cd source 
+            cd next-release 
             git config --global user.name "Online Boutique Release Pipeline"
             git config --global user.email "chuck@replicated.com"
             git config --global user.signingkey ${SSH_KEY_DIR}/signingkey
@@ -377,19 +512,16 @@ jobs:
     params:
       repository: next-release
       branch: release-((.:version))
-  - put: version
-    params:
-      file: version/version
 
-- name: merge-changes
+- name: merge-replicated
   plan:
   - get: next-release
     trigger: true
     passed:
-    - prepare-release
+    - prepare-replicated
   - get: version
     passed:
-    - prepare-release
+    - prepare-replicated
   - load_var: version
     file: version/version
   - task: create-pull-request
@@ -449,15 +581,15 @@ jobs:
             gh auth login -h github.com
             gh pr merge --merge --match-head-commit $(cat next-release/.git/ref) ${PR_URL}
 
-- name: replicated-release
+- name: release-replicated
   plan:
   - get: next-release
     trigger: true
     passed:
-    - merge-changes
+    - merge-replicated
   - get: version
     passed:
-    - merge-changes
+    - merge-replicated
   - load_var: version
     file: version/version
   - task: release-app
