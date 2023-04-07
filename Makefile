@@ -30,6 +30,47 @@ endif
 install:
 	@kubectl kots install ${REPLICATED_APP}/$(CHANNEL)
 
+beta:
+	@fly --target boutique trigger-job --job release/promote-beta
+
+edge:
+	@fly --target boutique trigger-job --job release/promote-edge
+
+stable:
+	@fly --target boutique trigger-job --job release/promote-stable
+
+services: adservice cartservice checkoutservice currencyservice emailservice frontend paymentservice productcatalogservice recommendationservice shippingservice
+
+adservice:
+	@fly --target boutique trigger-job --job adservice/build
+
+cartservice:
+	@fly --target boutique trigger-job --job cartservice/build
+
+checkoutservice:
+	@fly --target boutique trigger-job --job checkoutservice/build
+
+currencyservice:
+	@fly --target boutique trigger-job --job currencyservice/build
+
+emailservice:
+	@fly --target boutique trigger-job --job emailservice/build
+
+frontend:
+	@fly --target boutique trigger-job --job frontend/build
+
+paymentservice:
+	@fly --target boutique trigger-job --job paymentservice/build
+
+productcatalogservice:
+	@fly --target boutique trigger-job --job productcatalogservice/build
+
+recommendationservice:
+	@fly --target boutique trigger-job --job recommendationservice/build
+
+shippingservice:
+	@fly --target boutique trigger-job --job shippingservice/build
+
 pipelines:
 	@fly --target boutique set-pipeline --pipeline adservice --config ci/concourse/adservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline adservice
 	@fly --target boutique set-pipeline --pipeline cartservice --config ci/concourse/cartservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline cartservice
@@ -67,35 +108,3 @@ customers:
 	@replicated customer create --channel Stable --snapshot --name Gulgow
 	@replicated customer create --channel Beta --expires-in 730h --name Vandervort
 	@replicated customer create --channel Stable --snapshot --expires-in 26300h --name Langworth
-
-stable:
-	@nerdctl pull registry.shortrib.dev/online-boutique/adservice:edge \
-		&& nerdctl tag registry.shortrib.dev/online-boutique/adservice:edge registry.shortrib.dev/online-boutique/adservice:stable \
-		&& nerdctl push registry.shortrib.dev/online-boutique/adservice:stable
-	@nerdctl pull registry.shortrib.dev/online-boutique/cartservice:edge \
-		&& nerdctl tag registry.shortrib.dev/online-boutique/cartservice:edge registry.shortrib.dev/online-boutique/cartservice:stable \
-		&& nerdctl push registry.shortrib.dev/online-boutique/cartservice:stable
-	@nerdctl pull registry.shortrib.dev/online-boutique/checkoutservice:edge \
-		&& nerdctl tag registry.shortrib.dev/online-boutique/checkoutservice:edge registry.shortrib.dev/online-boutique/checkoutservice:stable \
-		&& nerdctl push registry.shortrib.dev/online-boutique/checkoutservice:stable
-	@nerdctl pull registry.shortrib.dev/online-boutique/currencyservice:edge \
-		&& nerdctl tag registry.shortrib.dev/online-boutique/currencyservice:edge registry.shortrib.dev/online-boutique/currencyservice:stable \
-		&& nerdctl push registry.shortrib.dev/online-boutique/currencyservice:stable
-	@nerdctl pull registry.shortrib.dev/online-boutique/emailservice:edge \
-		&& nerdctl tag registry.shortrib.dev/online-boutique/emailservice:edge registry.shortrib.dev/online-boutique/emailservice:stable \
-		&& nerdctl push registry.shortrib.dev/online-boutique/emailservice:stable
-	@nerdctl pull registry.shortrib.dev/online-boutique/frontend:edge \
-		&& nerdctl tag registry.shortrib.dev/online-boutique/frontend:edge registry.shortrib.dev/online-boutique/frontend:stable \
-		&& nerdctl push registry.shortrib.dev/online-boutique/frontend:stable
-	@nerdctl pull registry.shortrib.dev/online-boutique/paymentservice:edge \
-		&& nerdctl tag registry.shortrib.dev/online-boutique/paymentservice:edge registry.shortrib.dev/online-boutique/paymentservice:stable \
-		&& nerdctl push registry.shortrib.dev/online-boutique/paymentservice:stable
-	@nerdctl pull registry.shortrib.dev/online-boutique/productcatalogservice:edge \
-		&& nerdctl tag registry.shortrib.dev/online-boutique/productcatalogservice:edge registry.shortrib.dev/online-boutique/productcatalogservice:stable \
-		&& nerdctl push registry.shortrib.dev/online-boutique/productcatalogservice:stable
-	@nerdctl pull registry.shortrib.dev/online-boutique/recommendationservice:edge \
-		&& nerdctl tag registry.shortrib.dev/online-boutique/recommendationservice:edge registry.shortrib.dev/online-boutique/recommendationservice:stable \
-		&& nerdctl push registry.shortrib.dev/online-boutique/recommendationservice:stable
-	@nerdctl pull registry.shortrib.dev/online-boutique/shippingservice:edge \
-		&& nerdctl tag registry.shortrib.dev/online-boutique/shippingservice:edge registry.shortrib.dev/online-boutique/shippingservice:stable \
-		&& nerdctl push registry.shortrib.dev/online-boutique/shippingservice:stable
