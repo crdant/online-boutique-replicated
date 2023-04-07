@@ -97,70 +97,70 @@ resources:
     branch: version
     file: version
     <<: *git_credentials
-- name: adservice
+- name: adservice-edge
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/adservice
     tag: edge
     <<: *registry_credentials
-- name: cartservice
+- name: cartservice-edge
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/cartservice
     tag: edge
     <<: *registry_credentials
-- name: checkoutservice
+- name: checkoutservice-edge
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/checkoutservice
     tag: edge
     <<: *registry_credentials
-- name: currencyservice
+- name: currencyservice-edge
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/currencyservice
     tag: edge
     <<: *registry_credentials
-- name: emailservice
+- name: emailservice-edge
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/emailservice
     tag: edge
     <<: *registry_credentials
-- name: frontend
+- name: frontend-edge
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/frontend
     tag: edge
     <<: *registry_credentials
-- name: paymentservice
+- name: paymentservice-edge
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/paymentservice
     tag: edge
     <<: *registry_credentials
-- name: productcatalogservice
+- name: productcatalogservice-edge
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/productcatalogservice
     tag: edge
     <<: *registry_credentials
-- name: recommendationservice
+- name: recommendationservice-edge
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/recommendationservice
     tag: edge
     <<: *registry_credentials
-- name: shippingservice
+- name: shippingservice-edge
   type: registry-image
   icon: oci 
   source:
@@ -169,9 +169,9 @@ resources:
     <<: *registry_credentials
 
 jobs:
-- name: verify-adservice
+- name: verify-adservice-edge
   plan:
-  - get: adservice  
+  - get: adservice-edge  
     trigger: true
   - task: verify
     input_mapping:
@@ -181,9 +181,9 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: verify-cartservice
+- name: verify-cartservice-edge
   plan:
-  - get: cartservice  
+  - get: cartservice-edge  
     trigger: true
   - task: verify
     input_mapping:
@@ -193,9 +193,9 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: verify-checkoutservice
+- name: verify-checkoutservice-edge
   plan:
-  - get: checkoutservice  
+  - get: checkoutservice-edge  
     trigger: true
   - task: verify
     input_mapping:
@@ -205,9 +205,9 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: verify-currencyservice
+- name: verify-currencyservice-edge
   plan:
-  - get: currencyservice  
+  - get: currencyservice-edge  
     trigger: true
   - task: verify
     input_mapping:
@@ -217,9 +217,9 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: verify-emailservice
+- name: verify-emailservice-edge
   plan:
-  - get: emailservice  
+  - get: emailservice-edge  
     trigger: true
   - task: verify
     input_mapping:
@@ -229,21 +229,21 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: verify-frontend
+- name: verify-frontend-edge
   plan:
-  - get: frontend  
+  - get: frontend-edge
     trigger: true
   - task: verify
     input_mapping:
-      image: frontend
+      image: frontend-edge
     params:
       <<: *cosign_credentials
     config:
       <<: *cosign_verify
 
-- name: verify-paymentservice
+- name: verify-paymentservice-edge
   plan:
-  - get: paymentservice  
+  - get: paymentservice-edge  
     trigger: true
   - task: verify
     input_mapping:
@@ -253,9 +253,9 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: verify-productcatalogservice
+- name: verify-productcatalogservice-edge
   plan:
-  - get: productcatalogservice  
+  - get: productcatalogservice-edge  
     trigger: true
   - task: verify
     input_mapping:
@@ -265,9 +265,9 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: verify-recommendationservice
+- name: verify-recommendationservice-edge
   plan:
-  - get: recommendationservice  
+  - get: recommendationservice-edge  
     trigger: true
   - task: verify
     input_mapping:
@@ -277,9 +277,9 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: verify-shippingservice
+- name: verify-shippingservice-edge
   plan:
-  - get: shippingservice  
+  - get: shippingservice-edge  
     trigger: true
   - task: verify
     input_mapping:
@@ -291,46 +291,48 @@ jobs:
 
 - name: bump-version
   plan:
-  - get: adservice  
+  - get: current-release
+  - get: next-release
+  - get: adservice-edge  
     trigger: true
     passed:
-    - verify-adservice
-  - get: cartservice  
+    - verify-adservice-edge
+  - get: cartservice-edge  
     trigger: true
     passed:
-    - verify-cartservice
-  - get: checkoutservice  
+    - verify-cartservice-edge
+  - get: checkoutservice-edge  
     trigger: true
     passed:
-    - verify-checkoutservice
-  - get: currencyservice  
+    - verify-checkoutservice-edge
+  - get: currencyservice-edge  
     trigger: true
     passed:
-    - verify-currencyservice
-  - get: emailservice  
+    - verify-currencyservice-edge
+  - get: emailservice-edge  
     trigger: true
     passed:
-    - verify-emailservice
-  - get: frontend  
+    - verify-emailservice-edge
+  - get: frontend-edge
     trigger: true
     passed:
-    - verify-frontend
-  - get: paymentservice  
+    - verify-frontend-edge
+  - get: paymentservice-edge  
     trigger: true
     passed:
-    - verify-paymentservice
-  - get: productcatalogservice  
+    - verify-paymentservice-edge
+  - get: productcatalogservice-edge  
     trigger: true
     passed:
-    - verify-productcatalogservice
-  - get: recommendationservice  
+    - verify-productcatalogservice-edge
+  - get: recommendationservice-edge  
     trigger: true
     passed:
-    - verify-recommendationservice
-  - get: shippingservice  
+    - verify-recommendationservice-edge
+  - get: shippingservice-edge  
     trigger: true
     passed:
-    - verify-shippingservice
+    - verify-shippingservice-edge
   - get: version
     params:
       bump: patch
@@ -444,6 +446,10 @@ jobs:
   - load_var: version
     file: version/version
   - task: update-image-tags
+    input_mapping:
+      source: next-release
+    output_mapping:
+      source: next-release
     config:
       platform: linux
       image_resource:
@@ -452,17 +458,17 @@ jobs:
           tag: latest
         type: registry-image
       inputs:
-      - name: next-release
-      - name: adservice
-      - name: cartservice
-      - name: checkoutservice
-      - name: currencyservice
-      - name: emailservice
-      - name: frontend
-      - name: paymentservice
-      - name: productcatalogservice
-      - name: recommendationservice
-      - name: shippingservice
+      - name: source
+      - name: adservice-edge
+      - name: cartservice-edge
+      - name: checkoutservice-edge
+      - name: currencyservice-edge
+      - name: emailservice-edge
+      - name: frontend-edge
+      - name: paymentservice-edge
+      - name: productcatalogservice-edge
+      - name: recommendationservice-edge
+      - name: shippingservice-edge
       outputs:
       - name: next-release
       run:
