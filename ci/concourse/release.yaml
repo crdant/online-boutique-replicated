@@ -356,7 +356,7 @@ jobs:
       platform: linux
       image_resource:
         source:
-          repository: nixery.dev/shell/kubernetes-helm/yq-go/kubectl/kustomize/less/neovim
+          repository: nixery.dev/shell/kubernetes-helm/yq-go/kubectl/kustomize
           tag: latest
         type: registry-image
       inputs:
@@ -472,8 +472,9 @@ jobs:
           - -c 
           - |
             export SSH_KEY_DIR=$(pwd)/ssh
+            export commit_message=$(pwd)/commit-message
 
-            cat <<COMMIT_MESSAGE > commit-message
+            cat <<COMMIT_MESSAGE > ${commit_message}
             Automatically releases service updates
 
             TL;DR
@@ -490,12 +491,18 @@ jobs:
             function update_image_hash() {
               service=${1}
               digest=$(cat ${service}/digest)
-              manifest="next-release/manifests/${service}-chart.yaml"
+              # this is a little bit hacky because we may or may not be in the working tree
+              manifest="manifests/${service}-chart.yaml"
 
-              yq -i ".spec.values.images.tag = \"edge@${digest}\"" ${manifest}
-              if [[ git diff --exit-code  ${manifest} 2>&1 1>/dev/null ]] ; then
-                echo "* ${service}" >> commit-message
+              # not we're not in the working tree here so we qualify with the path to it
+              yq -i ".spec.values.images.tag = \"edge@${digest}\"" next-release/${manifest}
+              pushd next-release
+                
+              # now we are in the working tree so we don't
+              if ! git diff --exit-code  ${manifest} ; then
+                echo "* ${service}" >> ${commit_message}
               fi
+              popd
             }
 
             umask 077
@@ -526,7 +533,7 @@ jobs:
             git config --global commit.gpgsign true 
 
             git add manifests/*-chart.yaml
-            git commit -m "$(cat commit-message)"
+            git commit -m "$(cat ${commit_message})"
   - put: next-release
     params:
       repository: next-release
@@ -568,7 +575,16 @@ jobs:
 
             cd next-release
             gh auth login -h github.com
-            gh pr create --head ${RELEASE_BRANCH} --fill \
+
+            # couldn't use `--fill` or `--head` because of the state
+            # the working directory is in at this point, so I mimic
+            # what that would look like
+            title="$(git log --max-count 1 --pretty="%s")"
+            body="$(git log --max-count 1 --pretty="%b")"
+
+            git switch ${RELEASE_BRANCH}
+            gh pr create --title "${title}" \
+              --body "${body}" \
               > ${OUTPUT_DIR}/url
   - task: merge-pull-request
     params:
