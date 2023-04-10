@@ -493,8 +493,8 @@ jobs:
               pushd next-release
                 
               # now we are in the working tree so we don't
-              if ! git diff --exit-code  ${manifest} ; then
-                echo "* ${service}" >> ${commit_message}
+              if ! git diff --exit-code  ${manifest} 2>&1 1>/dev/null ; then
+                echo "  * ${service}" >> ${commit_message}
               fi
               popd
             }
