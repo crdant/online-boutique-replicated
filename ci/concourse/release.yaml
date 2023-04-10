@@ -25,6 +25,10 @@ cosign_verify: &cosign_verify
     args:
       - -c
       - |
+        # HACK! we need to pause a bit becaues there's a gap between when the image is pushed
+        # and when it's signed
+        sleep 80
+
         umask 077
         mkdir ${HOME}/.kube
         echo "$KUBECONFIG_JSON" > ${HOME}/.kube/config
@@ -41,34 +45,34 @@ get_images: &get_images
   steps:
   - get: adservice  
     passed:
-    - bump-version
+    - bump-patch-version
   - get: cartservice  
     passed:
-    - bump-version
+    - bump-patch-version
   - get: checkoutservice  
     passed:
-    - bump-version
+    - bump-patch-version
   - get: currencyservice  
     passed:
-    - bump-version
+    - bump-patch-version
   - get: emailservice  
     passed:
-    - bump-version
+    - bump-patch-version
   - get: frontend  
     passed:
-    - bump-version
+    - bump-patch-version
   - get: paymentservice  
     passed:
-    - bump-version
+    - bump-patch-version
   - get: productcatalogservice  
     passed:
-    - bump-version
+    - bump-patch-version
   - get: recommendationservice  
     passed:
-    - bump-version
+    - bump-patch-version
   - get: shippingservice  
     passed:
-    - bump-version
+    - bump-patch-version
 
 resources:
 - name: current-release
@@ -92,80 +96,69 @@ resources:
   type: semver
   icon: counter
   source:
-    driver: git
-    uri: https://github.com/crdant/online-boutique-replicated.git
-    branch: version
-    file: version
-    <<: *git_credentials
+    driver: gcs
+    bucket: online-boutique-semver
+    key: replicated-version
+    json_key: ((gcs.serviceaccountjson))
 - name: adservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/adservice
-    tag: edge
     <<: *registry_credentials
 - name: cartservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/cartservice
-    tag: edge
     <<: *registry_credentials
 - name: checkoutservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/checkoutservice
-    tag: edge
     <<: *registry_credentials
 - name: currencyservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/currencyservice
-    tag: edge
     <<: *registry_credentials
 - name: emailservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/emailservice
-    tag: edge
     <<: *registry_credentials
 - name: frontend
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/frontend
-    tag: edge
     <<: *registry_credentials
 - name: paymentservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/paymentservice
-    tag: edge
     <<: *registry_credentials
 - name: productcatalogservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/productcatalogservice
-    tag: edge
     <<: *registry_credentials
 - name: recommendationservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/recommendationservice
-    tag: edge
     <<: *registry_credentials
 - name: shippingservice
   type: registry-image
   icon: oci 
   source:
     repository: registry.shortrib.dev/online-boutique/shippingservice
-    tag: edge
     <<: *registry_credentials
 
 jobs:
@@ -289,7 +282,7 @@ jobs:
     config:
       <<: *cosign_verify
 
-- name: bump-version
+- name: bump-patch-version
   plan:
   - get: adservice  
     trigger: true
@@ -343,7 +336,7 @@ jobs:
   - get: version
     trigger: true
     passed:
-    - bump-version
+    - bump-patch-version
   - load_var: version
     file: version/version
   - in_parallel:
@@ -412,7 +405,6 @@ jobs:
 
             helm version
             kustomize version
-            kubectl get all -n online-boutique
 
             kustomize_service adservice
             kustomize_service cartservice
@@ -426,6 +418,7 @@ jobs:
             kustomize_service shippingservice
 
             helm upgrade uncommon-starfish oci://registry.shortrib.dev/online-boutique/onlineboutique \
+              --namespace online-boutique \
               --install --version 0.6.0 \
               --set images.repository=registry.shortrib.dev/online-boutique \
               --set loadGenerator.create=false \
@@ -440,7 +433,7 @@ jobs:
   - get: version
     trigger: true
     passed:
-    - bump-version
+    - bump-patch-version
   - load_var: version
     file: version/version
   - task: update-image-tags
@@ -486,11 +479,13 @@ jobs:
             -------
 
             Updates images versions for the following services: 
+
             COMMIT_MESSAGE
 
             function update_image_hash() {
               service=${1}
               digest=$(cat ${service}/digest)
+             
               # this is a little bit hacky because we may or may not be in the working tree
               manifest="manifests/${service}-chart.yaml"
 
@@ -499,8 +494,8 @@ jobs:
               pushd next-release
                 
               # now we are in the working tree so we don't
-              if ! git diff --exit-code  ${manifest} ; then
-                echo "* ${service}" >> ${commit_message}
+              if ! git diff --exit-code  ${manifest} 2>&1 1>/dev/null ; then
+                echo "  * ${service}" >> ${commit_message}
               fi
               popd
             }
@@ -611,7 +606,7 @@ jobs:
             gh auth login -h github.com
             gh pr merge --merge --match-head-commit $(cat next-release/.git/ref) ${PR_URL}
 
-- name: release-replicated
+- name: release-unstable
   plan:
   - get: next-release
     trigger: true
@@ -651,5 +646,124 @@ jobs:
               --version ${VERSION} \
               --release-notes "${RELEASE_NOTES}" \
               --yaml-dir manifests \
-              --ensure-channel \
-              --promote edge
+              --promote Unstable
+
+- name: promote-beta
+  plan:
+  - get: next-release
+    passed:
+    - release-unstable
+  - get: version
+    passed:
+    - release-unstable
+  - load_var: version
+    file: version/version
+  - task: release-app
+    params:
+      REPLICATED_APP: online-boutique
+      REPLICATED_API_TOKEN: ((replicated.token))
+      VERSION: ((.:version))
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: replicated/vendor-cli
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: next-release
+      run:
+        user: root
+        path: sh
+        dir: next-release
+        args:
+          - -c 
+          - |
+            RELEASE_NOTES="$(cat .git/commit_message)"
+            SEQUENCE=$(/replicated release ls | grep Unstable | awk '{ print $1 ;}')
+
+            /replicated release promote ${SEQUENCE} Beta \
+              --app ${REPLICATED_APP} \
+              --token ${REPLICATED_API_TOKEN} \
+              --version ${VERSION} \
+              --release-notes "${RELEASE_NOTES}" 
+
+- name: promote-edge
+  plan:
+  - get: next-release
+    passed:
+    - promote-beta
+  - get: version
+    passed:
+    - promote-beta
+  - load_var: version
+    file: version/version
+  - task: release-app
+    params:
+      REPLICATED_APP: online-boutique
+      REPLICATED_API_TOKEN: ((replicated.token))
+      VERSION: ((.:version))
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: replicated/vendor-cli
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: next-release
+      run:
+        user: root
+        path: sh
+        dir: next-release
+        args:
+          - -c 
+          - |
+            RELEASE_NOTES="$(cat .git/commit_message)"
+            SEQUENCE=$(/replicated release ls | grep Beta | awk '{ print $1 ;}')
+
+            /replicated release promote ${SEQUENCE} Edge \
+              --app ${REPLICATED_APP} \
+              --token ${REPLICATED_API_TOKEN} \
+              --version ${VERSION} \
+              --release-notes "${RELEASE_NOTES}" 
+
+- name: promote-stable
+  plan:
+  - get: next-release
+    passed:
+    - promote-edge
+  - get: version
+    passed:
+    - promote-edge
+  - load_var: version
+    file: version/version
+  - task: release-app
+    params:
+      REPLICATED_APP: online-boutique
+      REPLICATED_API_TOKEN: ((replicated.token))
+      VERSION: ((.:version))
+    config:
+      platform: linux
+      image_resource:
+        source:
+          repository: replicated/vendor-cli
+          tag: latest
+        type: registry-image
+      inputs:
+      - name: next-release
+      run:
+        user: root
+        path: sh
+        dir: next-release
+        args:
+          - -c 
+          - |
+            RELEASE_NOTES="$(cat .git/commit_message)"
+            SEQUENCE=$(/replicated release ls | grep Edge | awk '{ print $1 ;}')
+
+            /replicated release promote ${SEQUENCE} Stable \
+              --app ${REPLICATED_APP} \
+              --token ${REPLICATED_API_TOKEN} \
+              --version ${VERSION} \
+              --release-notes "${RELEASE_NOTES}" 

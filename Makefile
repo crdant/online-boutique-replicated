@@ -30,6 +30,47 @@ endif
 install:
 	@kubectl kots install ${REPLICATED_APP}/$(CHANNEL)
 
+beta:
+	@fly --target boutique trigger-job --job release/promote-beta
+
+edge:
+	@fly --target boutique trigger-job --job release/promote-edge
+
+stable:
+	@fly --target boutique trigger-job --job release/promote-stable
+
+services: adservice cartservice checkoutservice currencyservice emailservice frontend paymentservice productcatalogservice recommendationservice shippingservice
+
+adservice:
+	@fly --target boutique trigger-job --job adservice/build
+
+cartservice:
+	@fly --target boutique trigger-job --job cartservice/build
+
+checkoutservice:
+	@fly --target boutique trigger-job --job checkoutservice/build
+
+currencyservice:
+	@fly --target boutique trigger-job --job currencyservice/build
+
+emailservice:
+	@fly --target boutique trigger-job --job emailservice/build
+
+frontend:
+	@fly --target boutique trigger-job --job frontend/build
+
+paymentservice:
+	@fly --target boutique trigger-job --job paymentservice/build
+
+productcatalogservice:
+	@fly --target boutique trigger-job --job productcatalogservice/build
+
+recommendationservice:
+	@fly --target boutique trigger-job --job recommendationservice/build
+
+shippingservice:
+	@fly --target boutique trigger-job --job shippingservice/build
+
 pipelines:
 	@fly --target boutique set-pipeline --pipeline adservice --config ci/concourse/adservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline adservice
 	@fly --target boutique set-pipeline --pipeline cartservice --config ci/concourse/cartservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline cartservice
