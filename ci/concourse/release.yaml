@@ -445,17 +445,17 @@ jobs:
           tag: latest
         type: registry-image
       inputs:
-      - name: source
-      - name: adservice-edge
-      - name: cartservice-edge
-      - name: checkoutservice-edge
-      - name: currencyservice-edge
-      - name: emailservice-edge
-      - name: frontend-edge
-      - name: paymentservice-edge
-      - name: productcatalogservice-edge
-      - name: recommendationservice-edge
-      - name: shippingservice-edge
+      - name: next-release
+      - name: adservice
+      - name: cartservice
+      - name: checkoutservice
+      - name: currencyservice
+      - name: emailservice
+      - name: frontend
+      - name: paymentservice
+      - name: productcatalogservice
+      - name: recommendationservice
+      - name: shippingservice
       outputs:
       - name: next-release
       run:
