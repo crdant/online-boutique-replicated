@@ -405,7 +405,6 @@ jobs:
 
             helm version
             kustomize version
-            kubectl get all -n online-boutique
 
             kustomize_service adservice
             kustomize_service cartservice
@@ -419,6 +418,7 @@ jobs:
             kustomize_service shippingservice
 
             helm upgrade uncommon-starfish oci://registry.shortrib.dev/online-boutique/onlineboutique \
+              --namespace online-boutique \
               --install --version 0.6.0 \
               --set images.repository=registry.shortrib.dev/online-boutique \
               --set loadGenerator.create=false \
@@ -479,6 +479,7 @@ jobs:
             -------
 
             Updates images versions for the following services: 
+
             COMMIT_MESSAGE
 
             function update_image_hash() {
