@@ -356,7 +356,7 @@ jobs:
       platform: linux
       image_resource:
         source:
-          repository: nixery.dev/shell/kubernetes-helm/yq-go/kubectl/kustomize/less/neovim
+          repository: nixery.dev/shell/kubernetes-helm/yq-go/kubectl/kustomize
           tag: latest
         type: registry-image
       inputs:
@@ -472,11 +472,37 @@ jobs:
           - -c 
           - |
             export SSH_KEY_DIR=$(pwd)/ssh
+            export commit_message=$(pwd)/commit-message
+
+            cat <<COMMIT_MESSAGE > ${commit_message}
+            Automatically releases service updates
+
+            TL;DR
+            -----
+            
+            Creates new release for newly available service version(s)
+
+            Details
+            -------
+
+            Updates images versions for the following services: 
+            COMMIT_MESSAGE
 
             function update_image_hash() {
               service=${1}
               digest=$(cat ${service}/digest)
-              yq -i ".spec.values.images.tag = \"edge@${digest}\"" next-release/manifests/${service}-chart.yaml
+              # this is a little bit hacky because we may or may not be in the working tree
+              manifest="manifests/${service}-chart.yaml"
+
+              # not we're not in the working tree here so we qualify with the path to it
+              yq -i ".spec.values.images.tag = \"edge@${digest}\"" next-release/${manifest}
+              pushd next-release
+                
+              # now we are in the working tree so we don't
+              if ! git diff --exit-code  ${manifest} ; then
+                echo "* ${service}" >> ${commit_message}
+              fi
+              popd
             }
 
             umask 077
@@ -507,7 +533,7 @@ jobs:
             git config --global commit.gpgsign true 
 
             git add manifests/*-chart.yaml
-            git commit -m "Updates adservice digest to ${DIGEST}"
+            git commit -m "$(cat ${commit_message})"
   - put: next-release
     params:
       repository: next-release
@@ -528,9 +554,6 @@ jobs:
     params:
       GITHUB_TOKEN: ((github.password))
       RELEASE_BRANCH: release-((.:version))
-      PR_BODY: |
-        Automatic update of application manifests in response to updates to
-        the Ad Service image.
     config:
       platform: linux
       image_resource:
@@ -552,9 +575,16 @@ jobs:
 
             cd next-release
             gh auth login -h github.com
-            gh pr create --head ${RELEASE_BRANCH} \
-                --title "Bumps Ad Service to latest image" \
-                --body "${PR_BODY}" \
+
+            # couldn't use `--fill` or `--head` because of the state
+            # the working directory is in at this point, so I mimic
+            # what that would look like
+            title="$(git log --max-count 1 --pretty="%s")"
+            body="$(git log --max-count 1 --pretty="%b")"
+
+            git switch ${RELEASE_BRANCH}
+            gh pr create --title "${title}" \
+              --body "${body}" \
               > ${OUTPUT_DIR}/url
   - task: merge-pull-request
     params:
