@@ -1,9 +1,9 @@
-PROJECT_DIR    := $(shell pwd)
+PROJECT_DIR		:= $(shell pwd)
 PROJECT_PARAMS := secrets/params.yaml
-CHANNEL        := $(shell git branch --show-current)
+CHANNEL				:= $(shell git branch --show-current)
 
 MANIFEST_DIR := $(PROJECT_DIR)/manifests
-MANIFESTS    := $(shell find $(MANIFEST_DIR) -name '*.yaml' -o -name '*.tgz')
+MANIFESTS		:= $(shell find $(MANIFEST_DIR) -name '*.yaml' -o -name '*.tgz')
 
 app:
 	@replicated app create online-boutique
@@ -82,6 +82,7 @@ pipelines:
 	@fly --target boutique set-pipeline --pipeline productcatalogservice --config ci/concourse/productcatalogservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline productcatalogservice
 	@fly --target boutique set-pipeline --pipeline recommendationservice --config ci/concourse/recommendationservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline recommendationservice
 	@fly --target boutique set-pipeline --pipeline shippingservice --config ci/concourse/shippingservice/pipeline.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline shippingservice
+	@fly --target boutique set-pipeline --pipeline release --config ci/concourse/release.yaml --non-interactive && fly -t boutique unpause-pipeline --pipeline release
 
 customers:
 	@replicated customer create --channel Stable --expires-in 730h --name Klein-Stehr
@@ -108,3 +109,12 @@ customers:
 	@replicated customer create --channel Stable --snapshot --name Gulgow
 	@replicated customer create --channel Beta --expires-in 730h --name Vandervort
 	@replicated customer create --channel Stable --snapshot --expires-in 26300h --name Langworth
+
+.PHONY: saas-cluster
+saas-cluster:
+	@gcloud container clusters create ${USER}-online-boutique --region us-west2 --project smart-proxy-839 --no-enable-ip-alias --num-nodes 1 --labels owner=${USER},expiress-on=$(date -v +10d +"%Y-%m-%d")
+	@gcloud container clusters get-credentials ${USER}-online-boutique --region us-west2 
+
+.PHONY: destroy-saas
+destroy-saas:
+	@gcloud container clusters delete ${USER}-online-boutique --region us-west2
