@@ -27,7 +27,7 @@ spec:
     # image tag can vary per team
     images:
       repository: registry.shortrib.dev/online-boutique
-      tag: edge@sha256:1bed61131c956ddedfb64efbf42e745fbb7a12bafc505a7f3906c79cbd4e1c69
+      tag: edge@sha256:33ec885978d59fefd11bbb139d93b642cf6f09825f69e9d730b5fe1bd0cc4d47
     # enable the specific services this instance represents
     checkoutService:
       create: true
